@@ -1,158 +1,117 @@
-import numpy as np
-from matplotlib import pyplot as plt
-import pandas as pd
-import csv
+from tkinter import *
+from tkinter import messagebox, filedialog
+from tkinter.ttk import Checkbutton
+from vna import get_data, save_data
+from calibrations import Calibrations
 
-class Calibrations:
+# Experiment path
+def browse_button():
+    global exp_path
+    dir_name = filedialog.askdirectory()
+    exp_path.set(dir_name)
 
+# VNA interaction
+def get_picture_button():
+    global plot_phase, exp_path
+    get_data(param='S21', plot_phase=plot_phase.get(), exp_path=exp_path.get())
 
-    def __init__(self):
-        self.open_r = 1000
-        self.short_r = 4.3
-        self.load_r = 40
+def save_data_button():
+    global exp_path
+    pic_path = filedialog.asksaveasfilename(defaultextension=".csv")
+    save_data(pic_path=pic_path, exp_path=exp_path.get())
 
-    def set_options(self, csv_path, resistance, point_num):
-        self.open_csv_path = csv_path.get('open')
-        self.short_csv_path = csv_path.get('short')
-        self.load_csv_path = csv_path.get('load')
-        self.point_csv_path = csv_path.get('point')
+def current_calibrate():
+    global exp_path, open_path, short_path, load_path
+    csv_path = {
+        'open' : open_path,
+        'short' : short_path,
+        'load' : load_path,
+        'point' : f'{exp_path}/current/data.csv'
+    }
+    calibrations = Calibrations()
+    calibrations
 
-        self.open_r = resistance.get('open')
-        self.short_r = resistance.get('short')
-        self.load_r = resistance.get('load')
+    pass
 
-        self.point_num = point_num
+# Calibrations
+def attach_open_button():
+    global open_path, open_path_rel, exp_path
+    open_path.set(filedialog.askopenfilename())
+    if open_path and exp_path:
+        open_path_rel.set(''.join(open_path.get().rsplit(exp_path.get())))
 
+def attach_short_button():
+    global short_path, short_path_rel
+    short_path.set(filedialog.askopenfilename())
+    if short_path and exp_path:
+        short_path_rel.set(''.join(short_path.get().rsplit(exp_path.get())))
 
-    def _parse_csv(self, csv_table_path):
-        with open(csv_table_path, 'r') as csv_file:
-            table = csv.reader(csv_file)
-            table_list = []
-            for row in table:
-                if '#' not in row[0]:
-                    if '' in row:
-                        row.remove('')
-                    table_list.append(row)
-            df_data = pd.DataFrame(table_list[1:], columns=table_list[0])
-            return df_data
+def attach_load_button():
+    global load_path, load_path_rel
+    load_path.set(filedialog.askopenfilename())
+    if load_path and exp_path:
+        load_path_rel.set(''.join(load_path.get().rsplit(exp_path.get())))
 
+def attach_measure_button():
+    global measure_path, measure_path_rel
+    measure_path.set(filedialog.askopenfilename())
+    if measure_path and exp_path:
+        measure_path_rel.set(''.join(measure_path.get().rsplit(exp_path.get())))
 
-    def _get_z(self):
-        self.cal_load_z = np.zeros(shape=(self.point_num), dtype=np.complex128)
-        self.cal_load_z.real = np.array(self._parse_csv(self.load_csv_path).iloc(axis=1)[1], dtype=np.float64)
-        self.cal_load_z.imag = np.array(self._parse_csv(self.load_csv_path).iloc(axis=1)[2], dtype=np.float64)
+def apply_resist(cal, resist):
+    print(cal, resist)
 
-        self.cal_open_z = np.zeros(shape=(self.point_num), dtype=np.complex128)
-        self.cal_open_z.real = np.array(self._parse_csv(self.open_csv_path).iloc(axis=1)[1], dtype=np.float64)
-        self.cal_open_z.imag = np.array(self._parse_csv(self.open_csv_path).iloc(axis=1)[2], dtype=np.float64)
+root = Tk()
 
-        self.cal_short_z = np.zeros(shape=(self.point_num), dtype=np.complex128)
-        self.cal_short_z.real = np.array(self._parse_csv(self.short_csv_path).iloc(axis=1)[1], dtype=np.float64)
-        self.cal_short_z.imag = np.array(self._parse_csv(self.short_csv_path).iloc(axis=1)[2], dtype=np.float64)
+root['bg'] = 'white'
+root.title('vna-cals')
+root.wm_attributes('-alpha', 1)
+root.geometry('700x400')
+root.resizable(width=True, height=True)
 
-        self.point_z = np.zeros(shape=(self.point_num), dtype=np.complex128)
-        self.point_z.real = np.array(self._parse_csv(self.point_csv_path).iloc(axis=1)[1], dtype=np.float64)
-        self.point_z.imag = np.array(self._parse_csv(self.point_csv_path).iloc(axis=1)[2], dtype=np.float64)
+# Experiment path
+Label(master=root, text='Experiment path:', font=('bold', '18')).grid(row=0, column=1, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
+exp_path = StringVar()
+Label(master=root, textvariable=exp_path).grid(row=0, column=2, ipadx=5, ipady=5, padx=2, pady=2, columnspan=2)
+Button(text='Browse', command=browse_button).grid(row=0,column=4, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
 
-        self.freq_list = np.array(self._parse_csv(self.point_csv_path).iloc(axis=1)[0], dtype=np.float64) / 1000000000
+# VNA interaction
+Label(master=root, text='VNA interaction:', font=('bold', '18')).grid(row=1, column=1, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
+plot_phase = BooleanVar()
+plot_phase_chk = Checkbutton(root, text='Plot phase', var=plot_phase)
+plot_phase_chk.grid(row=2, column=1, ipadx=5, ipady=5, padx=2, pady=2)
 
+Button(text='Get graph', command=get_picture_button).grid(row=2, column=2, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
 
-    @staticmethod
-    def _E_matrix(C, V):
-        C_H = np.matrix.getH(C)
-        inv_CC_H = np.linalg.inv(np.dot(C_H, C))
-        result = np.dot(np.dot(inv_CC_H, C_H), V.T)
-        return result
+Button(text='Save data', command=save_data_button).grid(row=2, column=3, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
 
-    @staticmethod
-    def _Error_Coeffs(vector, cals):
-        cals['D'].append(vector[1])
-        cals['S'].append(vector[2])
-        cals['R'].append(vector[0] + vector[1] * vector[2])
+# Calibrations
+Label(master=root, text='Calibrations:', font=('bold', '18')).grid(row=3, column=1, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
+Label(master=root, text='Attach open cal:').grid(row=4, column=1, ipadx=5, ipady=5, padx=2, pady=2)
+open_path = StringVar()
+open_path_rel = StringVar()
+Label(master=root, textvariable=open_path_rel).grid(row=4, column=2, ipadx=5, ipady=5, padx=2, pady=2)
+Button(text='Attach', command=attach_open_button).grid(row=4,column=3, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
+resist_open = StringVar(root)
+resist_open_entry = Entry(root, textvariable=resist_open).grid(row=4,column=4, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
+Button(text='Apply resist', command= lambda: apply_resist('open', float(resist_open.get()))).grid(row=4,column=6, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
 
-    @staticmethod
-    def _Gamma(att, cal_frame):
-        gamma = (att - cal_frame['D']) / (cal_frame['R'] + cal_frame['S'] * att - cal_frame['S'] * cal_frame['D'])
-        return gamma
+Label(master=root, text='Attach short cal:').grid(row=5, column=1, ipadx=5, ipady=5, padx=2, pady=2)
+short_path = StringVar()
+short_path_rel = StringVar()
+Label(master=root, textvariable=short_path_rel).grid(row=5, column=2, ipadx=5, ipady=5, padx=2, pady=2)
+Button(text='Attach', command=attach_short_button).grid(row=5,column=3, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
 
-    @staticmethod
-    def _gamma_cal(Z_n):
-        rho = 50
-        return (Z_n - rho) / (Z_n + rho)
+Label(master=root, text='Attach load cal:').grid(row=6, column=1, ipadx=5, ipady=5, padx=2, pady=2)
+load_path = StringVar()
+load_path_rel = StringVar()
+Label(master=root, textvariable=load_path_rel).grid(row=6, column=2, ipadx=5, ipady=5, padx=2, pady=2)
+Button(text='Attach', command=attach_load_button).grid(row=6,column=3, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
 
-    def calibrate(self):
-        G_a_1 = self._gamma_cal(self.load_r)  # Actual match load
-        G_a_2 = self._gamma_cal(self.open_r)  # Actual open
-        G_a_3 = self._gamma_cal(self.short_r)  # Actual short
+Label(master=root, text='Attach measure:').grid(row=7, column=1, ipadx=5, ipady=5, padx=2, pady=2)
+measure_path = StringVar()
+measure_path_rel = StringVar()
+Label(master=root, textvariable=measure_path_rel).grid(row=7, column=2, ipadx=5, ipady=5, padx=2, pady=2)
+Button(text='Attach', command=attach_measure_button).grid(row=7,column=3, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
 
-        self._get_z()
-
-        cals = {'D': [], 'S': [], 'R': []}
-        for i in range(self.point_num):
-            G_m_1 = self.cal_load_z[i]  # Measured match load
-            G_m_2 = self.cal_open_z[i]  # Measured open
-            G_m_3 = self.cal_short_z[i]  # Measured short
-
-            C = np.array([[G_a_1, 1, G_a_1 * G_m_1], [G_a_2, 1, G_a_2 * G_m_2], [G_a_3, 1, G_a_3 * G_m_3]])
-            V = np.array([G_m_1, G_m_2, G_m_3])
-
-            self._Error_Coeffs(self._E_matrix(C, V), cals)
-
-        cals_frame = pd.DataFrame(cals)
-        self.point_calibrated = self._Gamma(self.point_z, cals_frame)
-
-
-    def plot(self, pic_name='SIS_IF_Ref', title='SIS IF Reflection', pic_path = '', save = False, start=None, stop=None):
-
-        plt.figure(figsize=(19, 6))
-        plt.suptitle(title)
-
-        plt.subplot(121)
-        plt.plot(self.freq_list[start:stop], 20 * np.log10(np.abs(self.point_calibrated))[start:stop])
-        plt.xlabel('frequency, GHz')
-        plt.ylabel('Amp, dB')
-        plt.minorticks_on()
-        plt.grid(which='minor', linestyle=':')
-        plt.grid()
-
-        plt.subplot(122)
-        plt.plot(self.freq_list[start:stop], np.angle(self.point_calibrated)[start:stop])
-        plt.xlabel('frequency, GHz')
-        plt.ylabel(r'phase, $rad$')
-        plt.minorticks_on()
-        plt.grid(which='minor', linestyle=':')
-        plt.grid()
-
-        if save:
-            plt.savefig(pic_path + pic_name + '.pdf', dpi=400)
-        plt.show()
-
-    def plot_cals(self, pic_name='Cals', title='Calibrations', pic_path = '', save = False, plot_measured = False, plot_calibrated = False):
-
-        plt.figure(figsize=(10, 6))
-        plt.title(title)
-
-        lgnd = ['open', 'short', 'load']
-
-        plt.plot(self.freq_list, 20 * np.log10(np.abs(self.cal_open_z)))
-        plt.plot(self.freq_list, 20 * np.log10(np.abs(self.cal_short_z)))
-        plt.plot(self.freq_list, 20 * np.log10(np.abs(self.cal_load_z)))
-
-        if plot_calibrated:
-            plt.plot(self.freq_list, 20 * np.log10(np.abs(self.point_calibrated)))
-            lgnd.append('point_calibrated')
-        if plot_measured:
-            plt.plot(self.freq_list, 20 * np.log10(np.abs(self.point_z)))
-            lgnd.append('point_measured')
-
-        plt.legend(lgnd)
-
-        plt.xlabel('frequency, GHz')
-        plt.ylabel('Amp, dB')
-        plt.minorticks_on()
-        plt.grid(which='minor', linestyle=':')
-        plt.grid()
-
-        if save:
-            plt.savefig(pic_path + pic_name + '.pdf', dpi=400)
-        plt.show()
+root.mainloop()
