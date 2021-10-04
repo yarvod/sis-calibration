@@ -5,7 +5,7 @@ import qcodes.instrument_drivers.rohde_schwarz.ZNB as ZNB
 import qcodes
 
 
-def get_data(param, plot_phase, exp_path, freq_start = 100e6, freq_stop = 1e9, freq_num = 200, vna_power=-30):
+def get_data(param, plot_phase, exp_path, freq_start = 100e6, freq_stop = 1e9, freq_num = 201, vna_power=-30):
     IP = '10.208.234.8'
     ZNB.ZNB.close_all()
     vna = ZNB.ZNB('VNA', f"TCPIP0::{IP}::INSTR", init_s_params=False)
@@ -38,10 +38,12 @@ def get_data(param, plot_phase, exp_path, freq_start = 100e6, freq_stop = 1e9, f
     # return {'freq' :freq, 'trace' :trace}
 
 def save_data(pic_path, exp_path):
-    if not os.path.exists('{}/data'.format(exp_path)):
-         os.mkdir('{}/data'.format(exp_path))
     if os.path.exists(f'{exp_path}/current/data.csv') and pic_path:
         os.replace(f'{exp_path}/current/data.csv', f"{pic_path}")
+
+def save_calibrated_data(data_path, exp_path):
+    if os.path.exists(f'{exp_path}/current/calibrated_data.csv') and data_path:
+        os.replace(f'{exp_path}/current/calibrated_data.csv', f"{data_path}")
 
 
 def get_pic(freq, trace, title, plot_phase, exp_path):
@@ -80,9 +82,9 @@ def get_pic(freq, trace, title, plot_phase, exp_path):
 
     with open(f'{exp_path}/current/data.csv', 'w') as f:
         writer = csv.writer(f)
-        writer.writerow(['freq-Hz', 're-im'])
+        writer.writerow(['freq-Hz', 're', 'im'])
         for i in range(len(freq)):
-            writer.writerow([freq[i], trace[i]])
+            writer.writerow([freq[i], trace[i].real, trace[i].imag])
 
     plt.show()
 

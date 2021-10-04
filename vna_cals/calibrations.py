@@ -101,26 +101,37 @@ class Calibrations:
         self.point_calibrated = self._Gamma(self.point_z, cals_frame)
 
 
-    def plot(self, pic_name='SIS_IF_Ref', title='SIS IF Reflection', pic_path = '', save = False, start=None, stop=None):
+    def plot(self, pic_name='SIS_IF_Ref', plot_phase = None, title='SIS IF Reflection', pic_path = '', save = False, start=None, stop=None):
 
-        plt.figure(figsize=(19, 6))
-        plt.suptitle(title)
+        if plot_phase:
+            plt.figure(figsize=(19, 6))
+            plt.suptitle(title)
 
-        plt.subplot(121)
-        plt.plot(self.freq_list[start:stop], 20 * np.log10(np.abs(self.point_calibrated))[start:stop])
-        plt.xlabel('frequency, GHz')
-        plt.ylabel('Amp, dB')
-        plt.minorticks_on()
-        plt.grid(which='minor', linestyle=':')
-        plt.grid()
+            plt.subplot(121)
+            plt.plot(self.freq_list[start:stop], 20 * np.log10(np.abs(self.point_calibrated))[start:stop])
+            plt.xlabel('frequency, GHz')
+            plt.ylabel('Amp, dB')
+            plt.minorticks_on()
+            plt.grid(which='minor', linestyle=':')
+            plt.grid()
 
-        plt.subplot(122)
-        plt.plot(self.freq_list[start:stop], np.angle(self.point_calibrated)[start:stop])
-        plt.xlabel('frequency, GHz')
-        plt.ylabel(r'phase, $rad$')
-        plt.minorticks_on()
-        plt.grid(which='minor', linestyle=':')
-        plt.grid()
+            plt.subplot(122)
+            plt.plot(self.freq_list[start:stop], np.angle(self.point_calibrated)[start:stop])
+            plt.xlabel('frequency, GHz')
+            plt.ylabel(r'phase, $rad$')
+            plt.minorticks_on()
+            plt.grid(which='minor', linestyle=':')
+            plt.grid()
+        if not plot_phase:
+            plt.figure(figsize=(10, 6))
+            plt.title(title)
+
+            plt.plot(self.freq_list[start:stop], 20 * np.log10(np.abs(self.point_calibrated))[start:stop])
+            plt.xlabel('frequency, GHz')
+            plt.ylabel('Amp, dB')
+            plt.minorticks_on()
+            plt.grid(which='minor', linestyle=':')
+            plt.grid()
 
         if save:
             plt.savefig(pic_path + pic_name + '.pdf', dpi=400)
