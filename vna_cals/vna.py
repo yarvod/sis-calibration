@@ -5,7 +5,7 @@ import qcodes.instrument_drivers.rohde_schwarz.ZNB as ZNB
 import qcodes
 
 
-def get_data(param, plot_phase, exp_path, freq_start = 100e6, freq_stop = 1e9, freq_num = 201, vna_power=-30):
+def get_data(param, plot_phase, exp_path, freq_start = 2e9, freq_stop = 9e9, freq_num = 201, vna_power=-30):
     IP = '10.208.234.8'
     ZNB.ZNB.close_all()
     vna = ZNB.ZNB('VNA', f"TCPIP0::{IP}::INSTR", init_s_params=False)
@@ -23,11 +23,9 @@ def get_data(param, plot_phase, exp_path, freq_start = 100e6, freq_stop = 1e9, f
     freq = np.linspace(freq_start, freq_stop, freq_num)
 
     vna.channels.format('Complex')
-
     vna.channels.start(freq_start)
     vna.channels.stop(freq_stop)
     vna.channels.npts(freq_num)
-
     vna.channels.power(vna_power)
     vna.channels.autoscale()
 

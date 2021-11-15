@@ -14,7 +14,7 @@ def browse_button():
 # VNA interaction
 def get_picture_button():
     global plot_phase, exp_path
-    get_data(param='S21', plot_phase=plot_phase.get(), exp_path=exp_path.get())
+    get_data(param=combo_param.get(), plot_phase=plot_phase.get(), exp_path=exp_path.get(), freq_num=int(point_num.get()) or 201)
 
 def save_data_button():
     global exp_path
@@ -30,7 +30,7 @@ def calibrate_button(meas):
         'point' : f'{exp_path.get()}/current/data.csv' if meas=='current' else f'{measure_path.get()}'
     }
     calibrations = Calibrations()
-    calibrations.set_options(csv_path=csv_path, resistance=resistance, point_num=201)
+    calibrations.set_options(csv_path=csv_path, resistance=resistance, point_num=int(point_num.get()) or 201)
     calibrations.calibrate()
     calibrations.plot(plot_phase=plot_phase.get())
 
@@ -91,7 +91,7 @@ def plot_calibrations_button():
         'point': f'{measure_path.get()}'
     }
     calibrations = Calibrations()
-    calibrations.set_options(csv_path=csv_path, resistance=resistance, point_num=201)
+    calibrations.set_options(csv_path=csv_path, resistance=resistance, point_num=int(point_num.get()) or 201)
     calibrations.calibrate()
     calibrations.plot_cals()
 
@@ -126,7 +126,10 @@ combo_param = Combobox(master=frame_VNA)
 combo_param['values'] = ('S11', 'S12', 'S21', 'S22')
 combo_param.current(2)
 combo_param.grid(row=1, column=1, ipadx=5, ipady=5, padx=2, pady=2, sticky='sw')
-Button(master=frame_VNA, text='Get graph', command=get_picture_button).grid(row=1, column=2, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
+Label(master=frame_VNA, text='Point num:').grid(row=1, column=2, ipadx=5, ipady=5, padx=2, pady=2)
+point_num = StringVar()
+point_num_entry = Entry(master=frame_VNA, textvariable=point_num).grid(row=1,column=3, ipadx=1, ipady=1, padx=2, pady=2, sticky='w')
+Button(master=frame_VNA, text='Get graph', command=get_picture_button).grid(row=1, column=4, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
 Button(master=frame_VNA, text='Save data', command=save_data_button).grid(row=2, column=0, ipadx=5, ipady=5, padx=2, pady=2)
 Button(master=frame_VNA, text='Calibrate current', command=lambda: calibrate_button('current')).grid(row=2, column=1, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
 Button(master=frame_VNA, text='Save calibrated data', command=save_calibrated_data_button).grid(row=2, column=2, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
