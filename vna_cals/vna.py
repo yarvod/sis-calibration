@@ -5,7 +5,10 @@ import qcodes.instrument_drivers.rohde_schwarz.ZNB as ZNB
 import qcodes
 
 
-def get_data(param, plot_phase, exp_path, freq_start = 100e6, freq_stop = 1e9, freq_num = 201, vna_power=-30):
+def get_data(param, plot_phase, exp_path, freq_start = 2e9, freq_stop = 9e9, freq_num = 201, vna_power=-30, aver=False, num=None, mov_aver=False, span=None):
+    title='IF Reflection'
+    plot_phase=plot_phase
+    exp_path=exp_path
     IP = '10.208.234.8'
     ZNB.ZNB.close_all()
     vna = ZNB.ZNB('VNA', f"TCPIP0::{IP}::INSTR", init_s_params=False)
@@ -23,37 +26,29 @@ def get_data(param, plot_phase, exp_path, freq_start = 100e6, freq_stop = 1e9, f
     freq = np.linspace(freq_start, freq_stop, freq_num)
 
     vna.channels.format('Complex')
-
     vna.channels.start(freq_start)
     vna.channels.stop(freq_stop)
     vna.channels.npts(freq_num)
-
     vna.channels.power(vna_power)
     vna.channels.autoscale()
 
-    trace = vna.channels.trace.get()[0]
-
-    get_pic(freq=freq, trace=trace, title='IF Reflection', plot_phase=plot_phase, exp_path=exp_path)
-
-    # return {'freq' :freq, 'trace' :trace}
-
-def save_data(pic_path, exp_path):
-    if os.path.exists(f'{exp_path}/current/data.csv') and pic_path:
-        os.replace(f'{exp_path}/current/data.csv', f"{pic_path}")
-
-def save_calibrated_data(data_path, exp_path):
-    if os.path.exists(f'{exp_path}/current/calibrated_data.csv') and data_path:
-        os.replace(f'{exp_path}/current/calibrated_data.csv', f"{data_path}")
-
-
-def get_pic(freq, trace, title, plot_phase, exp_path):
+    if aver:
+        db = av(num, vna)
+        trace = vna.channels.trace.get()[0]
+    if mov_aver:
+        db = mov_av(list(20*np.log10(np.abs(vna.channels.trace.get()[0]))), span)
+        freq = freq[span-1:]
+        trace = vna.channels.trace.get()[0]
+    else:
+        trace = vna.channels.trace.get()[0]
+        db = 20 * np.log10(np.abs(trace))
 
     if plot_phase:
         plt.figure(figsize=(18, 6))
         plt.suptitle(title)
 
         plt.subplot(121)
-        plt.plot(freq, 20*np.log10(np.abs(trace)))
+        plt.plot(freq, db)
         plt.xlabel('frequency, GHz')
         plt.ylabel('Amp, dB')
         plt.minorticks_on()
@@ -69,8 +64,8 @@ def get_pic(freq, trace, title, plot_phase, exp_path):
         plt.grid()
 
     else:
-        plt.figure(figsize=(10,6))
-        plt.plot(freq, 20*np.log10(np.abs(trace)))
+        plt.figure(figsize=(10, 6))
+        plt.plot(freq, db)
         plt.xlabel('frequency, GHz')
         plt.ylabel('Amp, dB')
         plt.minorticks_on()
@@ -87,6 +82,33 @@ def get_pic(freq, trace, title, plot_phase, exp_path):
             writer.writerow([freq[i], trace[i].real, trace[i].imag])
 
     plt.show()
+
+    # return {'freq' :freq, 'trace' :trace}
+
+def save_data(pic_path, exp_path):
+    if os.path.exists(f'{exp_path}/current/data.csv') and pic_path:
+        os.replace(f'{exp_path}/current/data.csv', f"{pic_path}")
+
+def save_calibrated_data(data_path, exp_path):
+    if os.path.exists(f'{exp_path}/current/calibrated_data.csv') and data_path:
+        os.replace(f'{exp_path}/current/calibrated_data.csv', f"{data_path}")
+
+def av(num, vna):
+    all_data = []
+    for i in range(num):
+        all_data.append(list(20*np.log10(np.abs(vna.channels.trace.get()[0]))))
+    all_data = np.array(all_data)
+    return np.mean(all_data, axis=0)
+
+
+def mov_av(a, n=3):
+    ret = np.cumsum(a, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    return ret[n - 1:] / n
+
+
+
+
 
 
 
