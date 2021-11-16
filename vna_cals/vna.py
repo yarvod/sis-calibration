@@ -33,12 +33,12 @@ def get_data(param, plot_phase, exp_path, freq_start = 2e9, freq_stop = 9e9, fre
     vna.channels.autoscale()
 
     if aver:
-        db = av(num, vna)
         trace = vna.channels.trace.get()[0]
+        db = av(num, trace)
     if mov_aver:
-        db = mov_av(list(20*np.log10(np.abs(vna.channels.trace.get()[0]))), span)
-        freq = freq[span-1:]
         trace = vna.channels.trace.get()[0]
+        db = 20 * np.log10(np.abs(mov_av(list(trace), span)))
+        freq = freq[span-1:]
     else:
         trace = vna.channels.trace.get()[0]
         db = 20 * np.log10(np.abs(trace))
@@ -93,16 +93,16 @@ def save_calibrated_data(data_path, exp_path):
     if os.path.exists(f'{exp_path}/current/calibrated_data.csv') and data_path:
         os.replace(f'{exp_path}/current/calibrated_data.csv', f"{data_path}")
 
-def av(num, vna):
+def av(num, vec):
     all_data = []
     for i in range(num):
-        all_data.append(list(20*np.log10(np.abs(vna.channels.trace.get()[0]))))
+        all_data.append(list(vec))
     all_data = np.array(all_data)
     return np.mean(all_data, axis=0)
 
 
 def mov_av(a, n=3):
-    ret = np.cumsum(a, dtype=float)
+    ret = np.cumsum(a, dtype=np.complex)
     ret[n:] = ret[n:] - ret[:-n]
     return ret[n - 1:] / n
 
