@@ -14,7 +14,9 @@ def browse_button():
 # VNA interaction
 def get_picture_button():
     global plot_phase, exp_path
-    get_data(param=combo_param.get(), plot_phase=plot_phase.get(), exp_path=exp_path.get(), freq_num=int(point_num.get()) or 201)
+    num = int(iterations.get()) if iterations.get() else None
+    spann = int(span.get()) if span.get() else None
+    get_data(param=combo_param.get(), plot_phase=plot_phase.get(), exp_path=exp_path.get(), freq_num=int(point_num.get()) or 201, num=num, mov_aver=mov_aver.get(), span=spann, aver=aver.get())
 
 def save_data_button():
     global exp_path
@@ -103,13 +105,14 @@ root = Tk()
 
 frame_Experiment = Frame(relief=RAISED, borderwidth=1)
 frame_VNA = Frame(relief=RAISED, borderwidth=1)
+frame_VNA_settings = Frame(relief=RAISED, borderwidth=1)
 frame_Calibrations = Frame(relief=RAISED, borderwidth=1)
-frame_Analysis = Frame(relief=RAISED, borderwidth=1)
+# frame_Analysis = Frame(relief=RAISED, borderwidth=1)
 
 root['bg'] = 'white'
 root.title('vna-cals')
 root.wm_attributes('-alpha', 1)
-root.geometry('750x520')
+root.geometry('830x525')
 root.resizable(width=True, height=False)
 
 # Experiment path
@@ -118,21 +121,32 @@ exp_path = StringVar()
 Label(master=frame_Experiment, textvariable=exp_path).grid(row=0, column=1, ipadx=5, ipady=5, padx=2, pady=2)
 Button(master=frame_Experiment, text='Browse', command=browse_button).grid(row=0,column=2, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
 
-# VNA interaction
-Label(master=frame_VNA, text='VNA interaction:', font=('bold', '18')).grid(row=0, column=0, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
-plot_phase = BooleanVar()
-plot_phase_chk = Checkbutton(master=frame_VNA, text='Plot phase', var=plot_phase).grid(row=1, column=0, ipadx=5, ipady=5, padx=2, pady=2)
-combo_param = Combobox(master=frame_VNA)
+# VNA settings
+Label(master=frame_VNA_settings, text='VNA Settings:', font=('bold', '18')).grid(row=0, column=0, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
+combo_param = Combobox(master=frame_VNA_settings)
 combo_param['values'] = ('S11', 'S12', 'S21', 'S22')
 combo_param.current(2)
-combo_param.grid(row=1, column=1, ipadx=5, ipady=5, padx=2, pady=2, sticky='sw')
-Label(master=frame_VNA, text='Point num:').grid(row=1, column=2, ipadx=5, ipady=5, padx=2, pady=2)
+combo_param.grid(row=1, column=0, ipadx=5, ipady=5, padx=2, pady=2, sticky='sw')
+Label(master=frame_VNA_settings, text='Point num:').grid(row=1, column=1, ipadx=5, ipady=5, padx=2, pady=2)
 point_num = StringVar()
-point_num_entry = Entry(master=frame_VNA, textvariable=point_num).grid(row=1,column=3, ipadx=1, ipady=1, padx=2, pady=2, sticky='w')
-Button(master=frame_VNA, text='Get graph', command=get_picture_button).grid(row=1, column=4, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
-Button(master=frame_VNA, text='Save data', command=save_data_button).grid(row=2, column=0, ipadx=5, ipady=5, padx=2, pady=2)
-Button(master=frame_VNA, text='Calibrate current', command=lambda: calibrate_button('current')).grid(row=2, column=1, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
-Button(master=frame_VNA, text='Save calibrated data', command=save_calibrated_data_button).grid(row=2, column=2, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
+point_num_entry = Entry(master=frame_VNA_settings, textvariable=point_num).grid(row=1,column=2, ipadx=1, ipady=1, padx=2, pady=2, sticky='w')
+plot_phase = BooleanVar()
+plot_phase_chk = Checkbutton(master=frame_VNA_settings, text='Plot phase', var=plot_phase).grid(row=1, column=3, ipadx=5, ipady=5, padx=2, pady=2)
+mov_aver = BooleanVar()
+mov_aver_chk = Checkbutton(master=frame_VNA_settings, text='Moving average. span:', var=mov_aver).grid(row=2, column=0, ipadx=5, ipady=5, padx=2, pady=2)
+span = StringVar()
+span_entry = Entry(master=frame_VNA_settings, textvariable=span).grid(row=2,column=1, ipadx=1, ipady=1, padx=2, pady=2, sticky='w')
+aver = BooleanVar()
+aver_chk = Checkbutton(master=frame_VNA_settings, text='VNA average. iterations:', var=aver).grid(row=2, column=2, ipadx=5, ipady=5, padx=2, pady=2)
+iterations = StringVar()
+iterations_entry = Entry(master=frame_VNA_settings, textvariable=iterations).grid(row=2,column=3, ipadx=1, ipady=1, padx=2, pady=2, sticky='w')
+
+# VNA interaction
+Label(master=frame_VNA, text='VNA interaction:', font=('bold', '18')).grid(row=0, column=0, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
+Button(master=frame_VNA, text='Plot current', command=get_picture_button).grid(row=1, column=1, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
+Button(master=frame_VNA, text='Save current data', command=save_data_button).grid(row=1, column=2, ipadx=5, ipady=5, padx=2, pady=2)
+Button(master=frame_VNA, text='Calibrate current', command=lambda: calibrate_button('current')).grid(row=1, column=3, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
+Button(master=frame_VNA, text='Save calibrated data', command=save_calibrated_data_button).grid(row=1, column=4, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
 
 # Calibrations
 Label(master=frame_Calibrations, text='Calibrations:', font=('bold', '18')).grid(row=0, column=1, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
@@ -173,11 +187,12 @@ Button(master=frame_Calibrations, text='Calibrate measure', command=lambda: cali
 Button(master=frame_Calibrations, text='Plot calibrations', command=plot_calibrations_button).grid(row=4,column=5, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
 
 # Analysis
-Label(master=frame_Analysis, text='Analysis:', font=('bold', '18')).grid(row=0, column=0, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
+# Label(master=frame_Analysis, text='Analysis:', font=('bold', '18')).grid(row=0, column=0, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
 
 # showing frames
 frame_Experiment.place(height=50, relwidth=0.99, y=5, x=5)
-frame_VNA.place(height=150, relwidth=0.99, y=55, x=5)
-frame_Calibrations.place(height=220, relwidth=0.99, y=205, x=5)
-frame_Analysis.place(height=100, relwidth=0.99, y=425, x=5)
+frame_VNA_settings.place(height=150, relwidth=0.99, y=55, x=5)
+frame_VNA.place(height=100, relwidth=0.99, y=205, x=5)
+frame_Calibrations.place(height=220, relwidth=0.99, y=305, x=5)
+# frame_Analysis.place(height=100, relwidth=0.99, y=525, x=5)
 root.mainloop()
