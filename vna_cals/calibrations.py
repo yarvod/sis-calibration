@@ -1,27 +1,100 @@
+from collections import defaultdict
+
 import numpy as np
 from matplotlib import pyplot as plt
 import pandas as pd
 import csv
 
-class Calibrations:
 
-    def __init__(self):
-        self.open_r = 1000
-        self.short_r = 4.3
-        self.load_r = 40
+def reim(df):
+    data_z = np.zeros(shape=(NUM), dtype=np.complex128)
+    data_z.real = np.array(df['re'], dtype=np.float64)
+    data_z.imag = np.array(df['im'], dtype=np.float64)
+    return data_z
 
-    def set_options(self, csv_path, resistance, point_num):
-        self.open_csv_path = csv_path.get('open')
-        self.short_csv_path = csv_path.get('short')
-        self.load_csv_path = csv_path.get('load')
-        self.point_csv_path = csv_path.get('point')
+
+def to_db(vec):
+    return 20 * np.log10(np.abs(vec))
+
+
+def get_v(data_dict, freq_point):
+    bias_v = data_dict.keys()
+    db = []
+    freq_ind = np.where(freq>freq_point)[0][0]
+    for key in data_dict:
+        db.append(data_dict[key][freq_ind])
+    return db
+
+
+def moving_average(a, n=3):
+    """
+    :param list a: vector to average
+    :param int n: points window
+    :return: averaged vector
+    """
+    ret = np.cumsum(a, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    return ret[n - 1:] / n
+
+
+def deriv(x, y):
+    """
+    :param list x:
+    :param list y:
+    :return: derivative vector
+    """
+    der = []
+    for i in range(len(y)-1):
+        der.append((x[i+1]-x[i])/(y[i+1]-y[i]))
+
+    der = np.array(der)
+    return 1/der
+
+
+def to_db2(dwl):
+    for key in dwl:
+        dwl[key] = to_db(dwl[key])
+    return dwl
+
+
+def calibrate(meas_path, cal_path, resistance, point_num, rho=50):
+    """
+    :param list of str meas_path: list of global paths to measurements (csv)
+    :param dict cal_path: global paths to 3 calibrations
+    :param dict resistance: open, short, load impedance
+    :param int point_num:
+    :param float rho: Impedance of supply line
+    :return: calibrated data
+    """
+    calibrated_data = defaultdict(list)
+    for meas in meas_path:
+        key = meas.split('/')[-1].split('.csv')[0]
+        cal = Calibration(
+            meas_path=meas,
+            cal_path=cal_path,
+            resistance=resistance,
+            point_num=point_num,
+            rho=rho
+        )
+        cal.calibrate()
+        calibrated_data[key] = np.array(cal.point_calibrated)
+    return calibrated_data
+
+
+class Calibration:
+
+    def __init__(self, meas_path, cal_path, resistance, point_num, rho=50):
+        self.open_csv_path = cal_path.get('open')
+        self.short_csv_path = cal_path.get('short')
+        self.load_csv_path = cal_path.get('load')
+        self.point_csv_path = meas_path
 
         self.open_r = resistance.get('open')
         self.short_r = resistance.get('short')
         self.load_r = resistance.get('load')
+        self.rho = rho
 
         self.point_num = point_num
-
 
     def _parse_csv(self, csv_table_path):
         with open(csv_table_path, 'r') as csv_file:
@@ -34,7 +107,6 @@ class Calibrations:
                     table_list.append(row)
             df_data = pd.DataFrame(table_list[1:], columns=table_list[0])
             return df_data
-
 
     def _get_z(self):
         self.cal_load_z = np.zeros(shape=(self.point_num), dtype=np.complex128)
@@ -55,7 +127,6 @@ class Calibrations:
 
         self.freq_list = np.array(self._parse_csv(self.point_csv_path).iloc(axis=1)[0], dtype=np.float64) / 1000000000
 
-
     @staticmethod
     def _E_matrix(C, V):
         C_H = np.matrix.getH(C)
@@ -74,10 +145,8 @@ class Calibrations:
         gamma = (att - cal_frame['D']) / (cal_frame['R'] + cal_frame['S'] * att - cal_frame['S'] * cal_frame['D'])
         return gamma
 
-    @staticmethod
-    def _gamma_cal(Z_n):
-        rho = 50
-        return (Z_n - rho) / (Z_n + rho)
+    def _gamma_cal(self, Z_n):
+        return (Z_n - self.rho) / (Z_n + self.rho)
 
     def calibrate(self):
         G_a_1 = self._gamma_cal(self.load_r)  # Actual match load
@@ -166,3 +235,5 @@ class Calibrations:
         if save:
             plt.savefig(pic_path + pic_name + '.pdf', dpi=400)
         plt.show()
+
+

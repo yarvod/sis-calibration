@@ -31,8 +31,7 @@ def calibrate_button(meas):
         'load' : load_path.get(),
         'point' : f'{exp_path.get()}/current/data.csv' if meas=='current' else f'{measure_path.get()}'
     }
-    calibrations = Calibrations()
-    calibrations.set_options(csv_path=csv_path, resistance=resistance, point_num=int(point_num.get()) or 201)
+    calibrations = Calibrations(csv_path=csv_path, resistance=resistance, point_num=int(point_num.get()) or 201)
     calibrations.calibrate()
     calibrations.plot(plot_phase=plot_phase.get())
 
@@ -47,7 +46,7 @@ def save_calibrated_data_button():
     global exp_path
     calibrated_data_path = filedialog.asksaveasfilename(defaultextension=".csv")
     save_calibrated_data(data_path=calibrated_data_path, exp_path=exp_path.get())
-
+    save_data_button()
 
 # Calibrations
 def attach_open_button():
@@ -92,8 +91,7 @@ def plot_calibrations_button():
         'load': load_path.get(),
         'point': f'{measure_path.get()}'
     }
-    calibrations = Calibrations()
-    calibrations.set_options(csv_path=csv_path, resistance=resistance, point_num=int(point_num.get()) or 201)
+    calibrations = Calibrations(csv_path=csv_path, resistance=resistance, point_num=int(point_num.get()) or 201)
     calibrations.calibrate()
     calibrations.plot_cals()
 

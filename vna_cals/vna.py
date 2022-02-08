@@ -5,7 +5,7 @@ import qcodes.instrument_drivers.rohde_schwarz.ZNB as ZNB
 import qcodes
 
 
-def get_data(param, plot_phase, exp_path, freq_start = 2e9, freq_stop = 9e9, freq_num = 201, vna_power=-30, aver=False, num=None, mov_aver=False, span=None):
+def get_data(param, plot_phase, exp_path, freq_start = 3.5e9, freq_stop = 8.5e9, freq_num = 201, vna_power=-30, aver=False, num=None, mov_aver=False, span=None):
     title='IF Reflection'
     plot_phase=plot_phase
     exp_path=exp_path
@@ -33,8 +33,8 @@ def get_data(param, plot_phase, exp_path, freq_start = 2e9, freq_stop = 9e9, fre
     vna.channels.autoscale()
 
     if aver:
-        trace = vna.channels.trace.get()[0]
-        db = av(num, trace)
+        trace = av(num, vna)
+        db = 20 * np.log10(np.abs(trace))
     if mov_aver:
         trace = vna.channels.trace.get()[0]
         db = 20 * np.log10(np.abs(mov_av(list(trace), span)))
@@ -93,10 +93,10 @@ def save_calibrated_data(data_path, exp_path):
     if os.path.exists(f'{exp_path}/current/calibrated_data.csv') and data_path:
         os.replace(f'{exp_path}/current/calibrated_data.csv', f"{data_path}")
 
-def av(num, vec):
+def av(num, vna):
     all_data = []
     for i in range(num):
-        all_data.append(list(vec))
+        all_data.append(list(vna.channels.trace.get()[0]))
     all_data = np.array(all_data)
     return np.mean(all_data, axis=0)
 
