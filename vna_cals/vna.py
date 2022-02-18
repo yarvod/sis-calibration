@@ -5,7 +5,7 @@ import qcodes.instrument_drivers.rohde_schwarz.ZNB as ZNB
 import qcodes
 
 
-def get_data(param, plot_phase, exp_path, freq_start = 3.5e9, freq_stop = 8.5e9, freq_num = 201, vna_power=-30, aver=False, num=None, mov_aver=False, span=None):
+def get_data(param, plot_phase, exp_path, freq_start=3.5e9, freq_stop=8.5e9, freq_num = 201, vna_power=-30, aver=False, num=None, mov_aver=False, span=None):
     title='IF Reflection'
     plot_phase=plot_phase
     exp_path=exp_path
@@ -105,11 +105,3 @@ def mov_av(a, n=3):
     ret = np.cumsum(a, dtype=np.complex)
     ret[n:] = ret[n:] - ret[:-n]
     return ret[n - 1:] / n
-
-
-
-
-
-
-
-
