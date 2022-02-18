@@ -1,5 +1,3 @@
-<script type="text/javascript" async src="//cdn.bootcss.com/mathjax/2.7.0/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
-<script type="text/javascript" async src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-MML-AM_CHTML"></script>
 ### Photon assisted tunneling:
 
 <img src="https://render.githubusercontent.com/render/math?math=I_{p}(V_0,\alpha) = \sum_{n=-\infty}^{+\infty} J_n^2(\alpha) \cdot I_{dc}(V_0 %2B n\hbar \omega / e)">
