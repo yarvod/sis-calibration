@@ -1,6 +1,5 @@
 from collections import defaultdict
 
-import numpy
 import numpy as np
 from matplotlib import pyplot as plt
 import pandas as pd
@@ -24,24 +23,20 @@ def to_db(vec):
     return 20 * np.log10(np.abs(vec))
 
 
-def get_v(data_dict, freq_point, freq):
-    bias_v = data_dict.keys()
-    db = []
-    freq_ind = np.where(freq>freq_point)[0][0]
-    for key in data_dict:
-        db.append(data_dict[key][freq_ind])
-    return db
-
-
 def moving_average(a, n=3):
     """
     :param list a: vector to average
     :param int n: points window
     :return: averaged vector
     """
-    ret = np.cumsum(a, dtype=float)
+    a = np.array(a)
+    ret = np.cumsum(a)
     ret[n:] = ret[n:] - ret[:-n]
     return ret[n - 1:] / n
+
+
+def power_aver(vec, n):
+    return 10*np.log10(moving_average((np.abs(vec))**2, n))
 
 
 def deriv(x, y):
@@ -51,44 +46,14 @@ def deriv(x, y):
     :return: derivative vector
     """
     der = []
-    for i in range(len(y)-1):
-        der.append((x[i+1]-x[i])/(y[i+1]-y[i]))
+    for i in range(len(y) - 1):
+        der.append((x[i + 1] - x[i]) / (y[i + 1] - y[i]))
 
     der = np.array(der)
-    return 1/der
+    return 1 / der
 
 
-def to_db2(dwl):
-    for key in dwl:
-        dwl[key] = to_db(dwl[key])
-    return dwl
-
-
-def calibrate(meas_path, cal_path, resistance, point_num, rho=50):
-    """
-    :param list of str meas_path: list of global paths to measurements (csv)
-    :param dict cal_path: global paths to 3 calibrations
-    :param dict resistance: open, short, load impedance
-    :param int point_num:
-    :param float rho: Impedance of supply line
-    :return: calibrated data
-    """
-    calibrated_data = defaultdict(list)
-    for meas in meas_path:
-        key = meas.split('/')[-1].split('.csv')[0]
-        cal = Calibration(
-            meas_path=meas,
-            cal_path=cal_path,
-            resistance=resistance,
-            point_num=point_num,
-            rho=rho
-        )
-        cal.calibrate()
-        calibrated_data[key] = np.array(cal.point_calibrated)
-    return calibrated_data
-
-
-class Calibration:
+class Measure:
 
     def __init__(self, meas_path, cal_path, resistance, point_num, rho=50):
         self.open_csv_path = cal_path.get('open')
@@ -161,9 +126,9 @@ class Calibration:
 
         self._get_z(calibrate=True)
 
-        G_a_1 = self._gamma_cal(self.load_z(self.freq_list*1e9))  # Actual match load
-        G_a_2 = self._gamma_cal(self.open_z(self.freq_list*1e9))  # Actual open
-        G_a_3 = self._gamma_cal(self.short_z(self.freq_list*1e9))  # Actual short
+        G_a_1 = self._gamma_cal(self.load_z(self.freq_list * 1e9))  # Actual match load
+        G_a_2 = self._gamma_cal(self.open_z(self.freq_list * 1e9))  # Actual open
+        G_a_3 = self._gamma_cal(self.short_z(self.freq_list * 1e9))  # Actual short
 
         cals = {'D': [], 'S': [], 'R': []}
         for i in range(self.point_num):
@@ -171,16 +136,18 @@ class Calibration:
             G_m_2 = self.cal_open_z[i]  # Measured open
             G_m_3 = self.cal_short_z[i]  # Measured short
 
-            C = np.array([[G_a_1[i], 1, G_a_1[i] * G_m_1], [G_a_2[i], 1, G_a_2[i] * G_m_2], [G_a_3[i], 1, G_a_3[i] * G_m_3]])
+            C = np.array(
+                [[G_a_1[i], 1, G_a_1[i] * G_m_1], [G_a_2[i], 1, G_a_2[i] * G_m_2], [G_a_3[i], 1, G_a_3[i] * G_m_3]])
             V = np.array([G_m_1, G_m_2, G_m_3])
 
             self._Error_Coeffs(self._E_matrix(C, V), cals)
 
-        cals_frame = pd.DataFrame(cals)
+        cals_frame = pd.DataFrame(data=cals, index=self.freq_list.round(4))
         self.point_calibrated = self._Gamma(self.point_z, cals_frame)
 
 
-    def plot(self, pic_name='SIS_IF_Ref', plot_phase = None, title='SIS IF Reflection', pic_path = '', save = False, start=None, stop=None):
+    def plot(self, pic_name='SIS_IF_Ref', plot_phase=None, title='SIS IF Reflection', pic_path='', save=False,
+             start=None, stop=None):
 
         if plot_phase:
             plt.figure(figsize=(19, 6))
@@ -216,7 +183,8 @@ class Calibration:
             plt.savefig(pic_path + pic_name + '.pdf', dpi=400)
         plt.show()
 
-    def plot_cals(self, pic_name='Cals', title='Calibrations', pic_path='', save=False, plot_measured=False, plot_calibrated=False):
+    def plot_cals(self, pic_name='Cals', title='Calibrations', pic_path='', save=False, plot_measured=False,
+                  plot_calibrated=False):
 
         plt.figure(figsize=(10, 6))
         plt.title(title)
@@ -259,23 +227,33 @@ class Mixer:
         self.rho = rho
 
         self.resp = RespFnFromIVData(self.Vn, self.In)
-        self.freq_list = np.array(Calibration._parse_csv(meas_path).iloc(axis=1)[0], dtype=np.float64)
-        self.meas_path = meas_path
         self.cal_path = cal_path
         self.point_num = point_num
 
-        self._calibration = None
+        if type(meas_path) == str:
+            meas_path = [meas_path]
+        self.meas_path = meas_path
+
+        self.freq_list = np.array(Measure._parse_csv(self.meas_path[0]).iloc(axis=1)[0], dtype=np.float64)
+
+        self._measures = defaultdict(Measure)
         self.cal_impedance = None
 
-    @property
-    def calibration(self):
-        return self._calibration
+    def calibrate(self):
+        for key in self._measures.keys():
+            self._measures[key].calibrate()
 
-    def set_calibration(self, recalculate=False):
+    @property
+    def measures(self):
+        return self._measures
+
+    def set_measures(self, recalculate=False):
         if recalculate or not self.cal_impedance:
             self.resistance
-        self._calibration = Calibration(self.meas_path, self.cal_path, self.cal_impedance, point_num=self.point_num,
-                                        rho=self.rho)
+        for meas_path in self.meas_path:
+            key = meas_path.split('/')[-1].split('.csv')[0]
+            self._measures[key] = Measure(meas_path, self.cal_path, self.cal_impedance,
+                                          point_num=self.point_num, rho=self.rho)
 
     @property
     def Vn(self):
@@ -362,9 +340,9 @@ class Mixer:
                         g[m + d][m1 + d] += float(
                             besselj(n, al) * besselj(n1, al) * self.kron(m - m1, n1 - n) * \
                             ((self.resp.idc((V0 + n1 * hbar * om / e + hbar * omm(m1) / e) / self.Vgap) - self.resp.idc(
-                                (V0 + n1 * hbar * om / e) / self.Vgap)) + \
+                                (V0 + n1 * hbar * om / e) / self.Vgap)) +
                              (self.resp.idc((V0 + n * hbar * om / e) / self.Vgap) - self.resp.idc(
-                                (V0 + n * hbar * om / e - hbar * omm(m1) / e) / self.Vgap))) * self.Igap
+                                 (V0 + n * hbar * om / e - hbar * omm(m1) / e) / self.Vgap))) * self.Igap
                         )
                 g[m + d][m1 + d] *= e / (2 * hbar * om0)
         return g
@@ -422,7 +400,7 @@ class Mixer:
             res += besselj(n, al) ** 2 * self.resp.idc((V0 + n * hbar * om / e) / self.Vgap) * self.Igap
         return res
 
-    def plot_Ip(self, al, nu,  V=None):
+    def plot_Ip(self, al, nu, V=None):
         """
         :param float al: pumping parameter
         :param float nu: Heterodyne rate
@@ -439,3 +417,17 @@ class Mixer:
         plt.legend()
         plt.grid()
         plt.show()
+
+
+def mixing(meas_path, cal_path, IV_csv_path, V_bias, point_num=300, rho=50):
+    mixer = Mixer(
+        meas_path=meas_path,
+        cal_path=cal_path,
+        IV_csv_path=IV_csv_path,
+        V_bias=V_bias,
+        point_num=point_num,
+        rho=rho
+    )
+    mixer.set_measures()
+    mixer.calibrate()
+    return mixer
