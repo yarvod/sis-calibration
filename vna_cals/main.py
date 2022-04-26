@@ -1,246 +1,247 @@
-import csv
 from tkinter import *
-from tkinter import messagebox, filedialog
-from tkinter.ttk import Checkbutton, Combobox
-from vna import get_data, save_data, save_calibrated_data
-from Mixer import Mixer, Calibration
+from tkinter import filedialog
+from tkinter.ttk import Notebook, Combobox
+
+from vna import get_data, save_data
+from Mixer import Mixer
+from scpi import Block
 
 
-# Experiment path
-def browse_button():
-    global exp_path
-    dir_name = filedialog.askdirectory()
-    exp_path.set(dir_name)
+class Base:
+
+    block = Block()
+    mixer = Mixer()
+
+    # SetUp
+    def browse_button(self):
+        dir_name = filedialog.askdirectory()
+        self.exp_path.set(dir_name)
+
+    # VNA
+    def show_data(self, save=False, plot=True):
+        start = float(self.freq_start.get())
+        stop = float(self.freq_stop.get())
+        get_data(param=self.s_param.get(),
+                 plot=plot,
+                 plot_phase=self.plot_phase.get(),
+                 freq_start=start, freq_stop=stop,
+                 exp_path=self.exp_path.get(),
+                 freq_num=int(self.point_num.get()) or 201)
+
+        if save:
+            pic_path = filedialog.asksaveasfilename(defaultextension=".csv")
+            save_data(pic_path=pic_path, exp_path=self.exp_path.get())
+
+    # Calibrations
+    def attach_file(self, which: str):
+        if which == 'open':
+            self.open_path.set(filedialog.askopenfilename())
+            if self.open_path and self.exp_path:
+                self.open_path_rel.set(''.join(self.open_path.get().rsplit(self.exp_path.get())))
+        elif which == 'short':
+            self.short_path.set(filedialog.askopenfilename())
+            if self.short_path and self.exp_path:
+                self.short_path_rel.set(''.join(self.short_path.get().rsplit(self.exp_path.get())))
+        elif which == 'load':
+            self.load_path.set(filedialog.askopenfilename())
+            if self.load_path and self.exp_path:
+                self.load_path_rel.set(''.join(self.load_path.get().rsplit(self.exp_path.get())))
+
+        elif which == 'IV':
+            self.IV_curve_path.set(filedialog.askopenfilename())
+            if self.IV_curve_path and self.exp_path:
+                self.IV_curve_path_rel.set(''.join(self.IV_curve_path.get().rsplit(self.exp_path.get())))
+
+    # I-V curve
+    def meas_iv(self, plot=True):
+        iv = self.block.measure_IV(
+            v_from=self.volt_start.get(),
+            v_to=self.volt_stop.get(), points=self.iv_point_num.get())
+        if plot:
+            self.block.plot_iv(iv)
+
+    def calc_offset(self):
+        pass
+
+    def measure_reflection(self):
+        refl = self.block.measure_reflection(
+            v_from=self.volt_start.get(), v_to=self.volt_stop.get(), points=self.iv_point_num.get(),
+            f_from=float(self.freq_start.get()), f_to=float(self.freq_stop.get()), f_points=int(self.point_num),
+            s_par=self.s_param.get(), exp_path=self.exp_path.get()
+        )
 
 
-# VNA interaction
-def get_picture_button():
-    global plot_phase, exp_path
-    num = int(iterations.get()) if iterations.get() else None
-    spann = int(span.get()) if span.get() else None
-    start = float(freq_start.get())
-    stop = float(freq_stop.get())
-    get_data(param=combo_param.get(),
-             plot_phase=plot_phase.get(),
-             freq_start=start, freq_stop=stop,
-             exp_path=exp_path.get(),
-                      freq_num=int(point_num.get()) or 201,
-                               num=num, mov_aver=mov_aver.get(), span=spann, aver=aver.get())
+class UI(Frame, Base):
+
+    def __init__(self, isapp=True, name='ui'):
+        Frame.__init__(self, name=name)
+        Base.__init__(self)
+        self.pack(expand=Y, fill=BOTH)
+
+        self.master.title('UI')
+        self.isapp = isapp
+        self._create_widgets()
+
+    def _create_widgets(self):
+        self._create_demo_panel()
+
+    def _create_demo_panel(self):
+        demoPanel = Frame(self, name='demo')
+        demoPanel.pack(side=TOP, fill=BOTH, expand=Y)
+
+        # create the notebook
+        nb = Notebook(demoPanel, name='notebook')
+
+        nb.enable_traversal()
+
+        nb.pack(fill=BOTH, expand=Y, padx=2, pady=3)
+        self._create_setup_tab(nb)
+        self._create_vna_tab(nb)
+        self._create_calibration_tab(nb)
+        self._create_ivcurve_tab(nb)
+
+    def _create_setup_tab(self, nb):
+        frame = Frame(nb, name='setup')
+        # widgets to be displayed on 'Description' tab
+
+        self.exp_path = StringVar()
+
+        Label(frame, text='Experiment path:', font=('bold', '14'))\
+            .grid(row=0, column=0, padx=5, pady=5, sticky='W')
+        Label(frame, textvariable=self.exp_path)\
+            .grid(row=0, column=1, padx=5, pady=5, sticky='W')
+        Button(frame, text='Browse', command=self.browse_button)\
+            .grid(row=0, column=2, padx=5, pady=5, sticky='W')
+
+        # position and set resize behaviour
+        frame.rowconfigure(1, weight=1)
+        frame.columnconfigure((0, 1), weight=1, uniform=1)
+
+        # add to notebook (underline = index for short-cut character)
+        nb.add(frame, text='SetUp', underline=0, padding=2)
+
+    def _create_vna_tab(self, nb):
+        frame = Frame(nb, name='vna')
+
+        Label(frame, text='S-Parameter:').grid(row=0, column=0, padx=5, pady=5)
+
+        self.s_param = Combobox(frame)
+        self.s_param['values'] = ('S11', 'S12', 'S21', 'S22')
+        self.s_param.current(2)
+        self.s_param.grid(row=0, column=1, padx=5, pady=5)
+
+        self.point_num = StringVar()
+        Label(frame, text='Point num:').grid(row=1, column=0, padx=5, pady=5)
+        Entry(frame, textvariable=self.point_num).grid(row=1, column=1, padx=5, pady=5)
+
+        self.freq_start = StringVar()
+        Label(frame, text='start freq:').grid(row=2, column=0, padx=5, pady=5)
+        Entry(frame, textvariable=self.freq_start).grid(row=2, column=1, padx=5, pady=5)
+
+        self.freq_stop = StringVar()
+        Label(frame, text='stop freq:').grid(row=3, column=0, padx=5, pady=5)
+        Entry(frame, textvariable=self.freq_stop).grid(row=3, column=1, padx=5, pady=5)
+
+        Button(frame, text='Show', command=self.show_data).grid(row=4, column=0, padx=5, pady=5)
+        Button(frame, text='Show&Save', command=lambda: self.show_data(True)).grid(row=4, column=1, padx=5, pady=5)
+        self.plot_phase = BooleanVar()
+        Checkbutton(frame, text='Plot phase', var=self.plot_phase).grid(row=4, column=2, padx=5, pady=5)
+
+        # add to notebook (underline = index for short-cut character)
+        nb.add(frame, text='VNA', underline=0, padding=2)
+
+    def _create_calibration_tab(self, nb):
+        frame = Frame(nb, name='calibrations')
+
+        Label(frame, text='Open cal:') \
+            .grid(row=0, column=0)
+
+        self.open_path = StringVar()
+        self.open_path_rel = StringVar()
+
+        Label(frame, textvariable=self.open_path_rel) \
+            .grid(row=0, column=1)
+        Button(frame, text='Attach', command=lambda: self.attach_file('open')) \
+            .grid(row=0, column=2)
+        self.V_bias_open = StringVar()
+        Entry(frame, textvariable=self.V_bias_open) \
+            .grid(row=0, column=3)
+
+        Label(frame, text='Short cal:') \
+            .grid(row=1, column=0)
+        self.short_path = StringVar()
+        self.short_path_rel = StringVar()
+        Label(frame, textvariable=self.short_path_rel) \
+            .grid(row=1, column=1)
+        Button(frame, text='Attach', command=lambda: self.attach_file('short')) \
+            .grid(row=1, column=2)
+        self.V_bias_short = StringVar()
+        Entry(frame, textvariable=self.V_bias_short) \
+            .grid(row=1, column=3)
+
+        Label(frame, text='Load cal:') \
+            .grid(row=2, column=0)
+        self.load_path = StringVar()
+        self.load_path_rel = StringVar()
+        Label(frame, textvariable=self.load_path_rel) \
+            .grid(row=2, column=1)
+        Button(frame, text='Attach', command=lambda: self.attach_file('load')) \
+            .grid(row=2, column=2)
+        self.V_bias_load = StringVar()
+        Entry(frame, textvariable=self.V_bias_load) \
+            .grid(row=2, column=3)
+
+        Label(frame, text='I-V curve:') \
+            .grid(row=3, column=0)
+        self.IV_curve_path = StringVar()
+        self.IV_curve_path_rel = StringVar()
+        Label(frame, textvariable=self.IV_curve_path_rel) \
+            .grid(row=3, column=1)
+        Button(frame, text='Attach', command=lambda: self.attach_file('IV')) \
+            .grid(row=3, column=2)
+
+        # Label(frame, text='Attach measure:') \
+        #     .grid(row=5, column=1, ipadx=5, ipady=5, padx=2, pady=2)
+        # measure_path = StringVar()
+        # measure_path_rel = StringVar()
+        # Label(frame, textvariable=measure_path_rel) \
+        #     .grid(row=5, column=2, ipadx=5, ipady=5, padx=2, pady=2)
+        # Button(frame, text='Attach', command=attach_measure_button) \
+        #     .grid(row=5, column=3, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
+        #
+        # Button(frame, text='Calibrate measure', command=lambda: calibrate_button('measure')) \
+        #     .grid(row=5, column=4, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
+        # Button(frame, text='Plot calibrations', command=plot_calibrations_button) \
+        #     .grid(row=5, column=5, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
+
+        nb.add(frame, text='Calibration', underline=0, padding=2)
+
+    def _create_ivcurve_tab(self, nb):
+        frame = Frame(nb, name='i-v curve')
+
+        iv_frame = Frame(frame)
+        iv_frame.pack()
+
+        self.iv_point_num = StringVar()
+        Label(iv_frame, text='Point num:').grid(row=0, column=0, padx=5, pady=5)
+        Entry(iv_frame, textvariable=self.iv_point_num).grid(row=0, column=1, padx=5, pady=5)
+
+        self.volt_start = StringVar()
+        Label(iv_frame, text='start volt:').grid(row=0, column=2, padx=5, pady=5)
+        Entry(iv_frame, textvariable=self.volt_start).grid(row=0, column=3, padx=5, pady=5)
+
+        self.volt_stop = StringVar()
+        Label(iv_frame, text='stop volt:').grid(row=0, column=4, padx=5, pady=5)
+        Entry(iv_frame, textvariable=self.volt_stop).grid(row=0, column=5, padx=5, pady=5)
+
+        Button(iv_frame, text='Measure curve', command=lambda: self.meas_iv()) \
+            .grid(row=1, column=0, padx=5, pady=5)
+
+        Button(iv_frame, text='Calculate offset', command=lambda: self.calc_offset()) \
+            .grid(row=1, column=1, padx=5, pady=5)
+
+        nb.add(frame, text='I-V curve', underline=0, padding=2)
 
 
-def save_data_button():
-    global exp_path
-    pic_path = filedialog.asksaveasfilename(defaultextension=".csv")
-    save_data(pic_path=pic_path, exp_path=exp_path.get())
-
-
-def calibrate_button(meas):
-    global exp_path, open_path, short_path, load_path
-    cal_path = {
-        'open': open_path.get(),
-        'short': short_path.get(),
-        'load': load_path.get(),
-    }
-    V_bias = {
-        'open': float(V_bias_open.get()),
-        'short': float(V_bias_short.get()),
-        'load': float(V_bias_load.get())
-    }
-    IV_csv_path = IV_curve_path.get()
-    meas_path = f'{exp_path.get()}/current/data.csv' if meas=='current' else f'{measure_path.get()}'
-
-    mixer = Mixer(IV_csv_path=IV_csv_path, meas_path=meas_path, cal_path=cal_path, V_bias=V_bias,
-                  point_num=int(point_num.get()) or 201)
-    mixer.set_calibration()
-    mixer.calibrate()
-    mixer.calibration.plot(plot_phase=plot_phase.get())
-
-    if meas == 'current':
-        with open(f'{exp_path.get()}/current/calibrated_data.csv', 'w') as f:
-            writer = csv.writer(f)
-            writer.writerow(['freq-Hz', 're', 'im'])
-            for i in range(len(mixer.calibration.freq_list)):
-                writer.writerow(
-                    [
-                        mixer.calibration.freq_list[i],
-                        mixer.calibration.point_calibrated[i].real,
-                        mixer.calibration.point_calibrated[i].imag
-                    ]
-                )
-
-
-def save_calibrated_data_button():
-    global exp_path
-    calibrated_data_path = filedialog.asksaveasfilename(defaultextension=".csv")
-    save_calibrated_data(data_path=calibrated_data_path, exp_path=exp_path.get())
-    save_data_button()
-
-
-# Calibrations
-def attach_open_button():
-    global open_path, open_path_rel, exp_path
-    open_path.set(filedialog.askopenfilename())
-    if open_path and exp_path:
-        open_path_rel.set(''.join(open_path.get().rsplit(exp_path.get())))
-
-
-def attach_short_button():
-    global short_path, short_path_rel
-    short_path.set(filedialog.askopenfilename())
-    if short_path and exp_path:
-        short_path_rel.set(''.join(short_path.get().rsplit(exp_path.get())))
-
-
-def attach_load_button():
-    global load_path, load_path_rel
-    load_path.set(filedialog.askopenfilename())
-    if load_path and exp_path:
-        load_path_rel.set(''.join(load_path.get().rsplit(exp_path.get())))
-
-
-def attach_IV_curve_button():
-    global IV_curve_path, IV_curve_path_rel
-    IV_curve_path.set(filedialog.askopenfilename())
-    if IV_curve_path and exp_path:
-        IV_curve_path_rel.set(''.join(IV_curve_path.get().rsplit(exp_path.get())))
-
-
-def attach_measure_button():
-    global measure_path, measure_path_rel
-    measure_path.set(filedialog.askopenfilename())
-    if measure_path and exp_path:
-        measure_path_rel.set(''.join(measure_path.get().rsplit(exp_path.get())))
-
-
-def apply_V_bias(cal, resist):
-    global V_bias
-    if cal == 'open':
-        V_bias['open'] = resist
-    elif cal == 'short':
-        V_bias['short'] = resist
-    elif cal == 'load':
-        V_bias['load'] = resist
-    print(V_bias)
-
-
-def plot_calibrations_button():
-    global exp_path, open_path, short_path, load_path
-    cal_path = {
-        'open': open_path.get(),
-        'short': short_path.get(),
-        'load': load_path.get(),
-    }
-
-    calibration = Calibration(cal_path=cal_path, point_num=int(point_num.get()) or 201)
-    calibration.plot_cals()
-
-
-# Global variables
-
-# Main part
-root = Tk()
-
-frame_Experiment = Frame(relief=RAISED, borderwidth=1)
-frame_VNA = Frame(relief=RAISED, borderwidth=1)
-frame_VNA_settings = Frame(relief=RAISED, borderwidth=1)
-frame_Calibrations = Frame(relief=RAISED, borderwidth=1)
-# frame_Analysis = Frame(relief=RAISED, borderwidth=1)
-
-root['bg'] = 'white'
-root.title('vna-cals')
-root.wm_attributes('-alpha', 1)
-root.geometry('830x585')
-root.resizable(width=True, height=False)
-
-# Experiment path
-Label(master=frame_Experiment, text='Experiment path:', font=('bold', '18')).grid(row=0, column=0, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
-exp_path = StringVar()
-Label(master=frame_Experiment, textvariable=exp_path).grid(row=0, column=1, ipadx=5, ipady=5, padx=2, pady=2)
-Button(master=frame_Experiment, text='Browse', command=browse_button).grid(row=0,column=2, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
-
-# VNA settings
-Label(master=frame_VNA_settings, text='VNA Settings:', font=('bold', '18')).grid(row=0, column=0, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
-combo_param = Combobox(master=frame_VNA_settings)
-combo_param['values'] = ('S11', 'S12', 'S21', 'S22')
-combo_param.current(2)
-combo_param.grid(row=1, column=0, ipadx=5, ipady=5, padx=2, pady=2, sticky='sw')
-Label(master=frame_VNA_settings, text='Point num:').grid(row=1, column=1, ipadx=5, ipady=5, padx=2, pady=2)
-point_num = StringVar()
-point_num_entry = Entry(master=frame_VNA_settings, textvariable=point_num).grid(row=1,column=2, ipadx=1, ipady=1, padx=2, pady=2, sticky='w')
-plot_phase = BooleanVar()
-plot_phase_chk = Checkbutton(master=frame_VNA_settings, text='Plot phase', var=plot_phase).grid(row=1, column=3, ipadx=5, ipady=5, padx=2, pady=2)
-mov_aver = BooleanVar()
-mov_aver_chk = Checkbutton(master=frame_VNA_settings, text='Moving average. span:', var=mov_aver).grid(row=2, column=0, ipadx=5, ipady=5, padx=2, pady=2)
-span = StringVar()
-span_entry = Entry(master=frame_VNA_settings, textvariable=span).grid(row=2,column=1, ipadx=1, ipady=1, padx=2, pady=2, sticky='w')
-aver = BooleanVar()
-aver_chk = Checkbutton(master=frame_VNA_settings, text='VNA average. iterations:', var=aver).grid(row=2, column=2, ipadx=5, ipady=5, padx=2, pady=2)
-iterations = StringVar()
-iterations_entry = Entry(master=frame_VNA_settings, textvariable=iterations).grid(row=2,column=3, ipadx=1, ipady=1, padx=2, pady=2, sticky='w')
-
-Label(master=frame_VNA_settings, text='start freq:').grid(row=3, column=0, ipadx=5, ipady=5, padx=2, pady=2)
-freq_start = StringVar()
-freq_start_entry = Entry(master=frame_VNA_settings, textvariable=freq_start).grid(row=3,column=1, ipadx=1, ipady=1, padx=2, pady=2, sticky='w')
-Label(master=frame_VNA_settings, text='stop freq:').grid(row=3, column=2, ipadx=5, ipady=5, padx=2, pady=2)
-freq_stop = StringVar()
-freq_stop_entry = Entry(master=frame_VNA_settings, textvariable=freq_stop).grid(row=3,column=3, ipadx=1, ipady=1, padx=2, pady=2, sticky='w')
-
-
-# VNA interaction
-Label(master=frame_VNA, text='VNA interaction:', font=('bold', '18')).grid(row=0, column=0, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
-Button(master=frame_VNA, text='Plot current', command=get_picture_button).grid(row=1, column=1, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
-Button(master=frame_VNA, text='Save current data', command=save_data_button).grid(row=1, column=2, ipadx=5, ipady=5, padx=2, pady=2)
-Button(master=frame_VNA, text='Calibrate current', command=lambda: calibrate_button('current')).grid(row=1, column=3, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
-Button(master=frame_VNA, text='Save calibrated data', command=save_calibrated_data_button).grid(row=1, column=4, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
-
-# Calibrations
-Label(master=frame_Calibrations, text='Calibrations:', font=('bold', '18')).grid(row=0, column=1, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
-Label(master=frame_Calibrations, text='Attach open cal:').grid(row=1, column=1, ipadx=5, ipady=5, padx=2, pady=2)
-open_path = StringVar()
-open_path_rel = StringVar()
-Label(master=frame_Calibrations, textvariable=open_path_rel).grid(row=1, column=2, ipadx=5, ipady=5, padx=2, pady=2)
-Button(master=frame_Calibrations, text='Attach', command=attach_open_button).grid(row=1, column=3, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
-V_bias_open = StringVar()
-V_bias_open_entry = Entry(master=frame_Calibrations, textvariable=V_bias_open).grid(row=1,column=4, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
-
-Label(master=frame_Calibrations, text='Attach short cal:').grid(row=2, column=1, ipadx=5, ipady=5, padx=2, pady=2)
-short_path = StringVar()
-short_path_rel = StringVar()
-Label(master=frame_Calibrations, textvariable=short_path_rel).grid(row=2, column=2, ipadx=5, ipady=5, padx=2, pady=2)
-Button(master=frame_Calibrations, text='Attach', command=attach_short_button).grid(row=2,column=3, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
-V_bias_short = StringVar()
-V_bias_short_entry = Entry(master=frame_Calibrations, textvariable=V_bias_short).grid(row=2,column=4, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
-
-Label(master=frame_Calibrations, text='Attach load cal:').grid(row=3, column=1, ipadx=5, ipady=5, padx=2, pady=2)
-load_path = StringVar()
-load_path_rel = StringVar()
-Label(master=frame_Calibrations, textvariable=load_path_rel).grid(row=3, column=2, ipadx=5, ipady=5, padx=2, pady=2)
-Button(master=frame_Calibrations, text='Attach', command=attach_load_button).grid(row=3,column=3, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
-V_bias_load = StringVar()
-V_bias_load_entry = Entry(master=frame_Calibrations, textvariable=V_bias_load).grid(row=3,column=4, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
-
-Label(master=frame_Calibrations, text='Attach I-V curve:').grid(row=4, column=1, ipadx=5, ipady=5, padx=2, pady=2)
-IV_curve_path = StringVar()
-IV_curve_path_rel = StringVar()
-Label(master=frame_Calibrations, textvariable=IV_curve_path_rel).grid(row=4, column=2, ipadx=5, ipady=5, padx=2, pady=2)
-Button(master=frame_Calibrations, text='Attach', command=attach_IV_curve_button).grid(row=4,column=3, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
-
-Label(master=frame_Calibrations, text='Attach measure:').grid(row=5, column=1, ipadx=5, ipady=5, padx=2, pady=2)
-measure_path = StringVar()
-measure_path_rel = StringVar()
-Label(master=frame_Calibrations, textvariable=measure_path_rel).grid(row=5, column=2, ipadx=5, ipady=5, padx=2, pady=2)
-Button(master=frame_Calibrations, text='Attach', command=attach_measure_button).grid(row=5,column=3, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
-
-Button(master=frame_Calibrations, text='Calibrate measure', command=lambda: calibrate_button('measure')).grid(row=5,column=4, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
-Button(master=frame_Calibrations, text='Plot calibrations', command=plot_calibrations_button).grid(row=5,column=5, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
-
-# Analysis
-# Label(master=frame_Analysis, text='Analysis:', font=('bold', '18')).grid(row=0, column=0, ipadx=5, ipady=5, padx=2, pady=2, sticky='w')
-
-# showing frames
-frame_Experiment.place(height=50, relwidth=0.99, y=5, x=5)
-frame_VNA_settings.place(height=170, relwidth=0.99, y=55, x=5)
-frame_VNA.place(height=100, relwidth=0.99, y=225, x=5)
-frame_Calibrations.place(height=260, relwidth=0.99, y=325, x=5)
-# frame_Analysis.place(height=100, relwidth=0.99, y=525, x=5)
-root.mainloop()
+if __name__ == '__main__':
+    UI().mainloop()

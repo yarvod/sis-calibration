@@ -217,7 +217,27 @@ class Measure:
 
 class Mixer:
 
-    def __init__(self, IV_csv_path, meas_path, cal_path, V_bias, point_num, rho=50):
+    def __init__(self):
+        self.csv_path = None
+        self.table = None
+        self.I = None
+        self.V = None
+
+        self.V_bias = None
+        self.rho = None
+
+        self.resp = None
+        self.cal_path = None
+        self.point_num = None
+
+        self.meas_path = None
+
+        self.freq_list = None
+
+        self._measures = defaultdict(Measure)
+        self.cal_impedance = None
+
+    def set_params(self, IV_csv_path, meas_path, cal_path, V_bias, point_num, rho=50):
         self.csv_path = IV_csv_path
         self.table = pd.read_csv(IV_csv_path)
         self.I = np.array(self.table['I'])
@@ -249,11 +269,14 @@ class Mixer:
 
     def set_measures(self, recalculate=False):
         if recalculate or not self.cal_impedance:
-            self.resistance
+            self.set_cal_impedance()
         for meas_path in self.meas_path:
             key = meas_path.split('/')[-1].split('.csv')[0]
             self._measures[key] = Measure(meas_path, self.cal_path, self.cal_impedance,
                                           point_num=self.point_num, rho=self.rho)
+
+    def remove_measures(self):
+        self._measures = defaultdict(Measure)
 
     @property
     def Vn(self):
@@ -282,8 +305,7 @@ class Mixer:
         else:
             return 0
 
-    @property
-    def resistance(self):
+    def set_cal_impedance(self):
         res = {
             'open': {'re': [], 'im': []},
             'short': {'re': [], 'im': []},
@@ -420,7 +442,8 @@ class Mixer:
 
 
 def mixing(meas_path, cal_path, IV_csv_path, V_bias, point_num=300, rho=50):
-    mixer = Mixer(
+    mixer = Mixer()
+    mixer.set_params(
         meas_path=meas_path,
         cal_path=cal_path,
         IV_csv_path=IV_csv_path,
