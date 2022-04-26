@@ -55,8 +55,8 @@ class Base:
     # I-V curve
     def meas_iv(self, plot=True):
         iv = self.block.measure_IV(
-            v_from=self.volt_start.get(),
-            v_to=self.volt_stop.get(), points=self.iv_point_num.get())
+            v_from=float(self.volt_start.get()),
+            v_to=float(self.volt_stop.get()), points=int(self.iv_point_num.get()))
         if plot:
             self.block.plot_iv(iv)
 

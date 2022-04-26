@@ -3,6 +3,7 @@ from collections import defaultdict
 import numpy as np
 from matplotlib import pyplot as plt
 from vna import get_data
+from logger import logger
 
 ST_OK = 'OK'
 
@@ -18,7 +19,7 @@ class Block:
     def manipulate(cls, cmd: str) -> str:
         if type(cmd) != bytes:
             cmd = bytes(cmd, 'utf-8')
-        with socket.socket(socket.AF_UNIX, socket.socket.SOCK_STREAM) as s:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((cls.HOST, cls.PORT))
             s.sendall(cmd)
             data = s.recv(1024)
@@ -34,9 +35,9 @@ class Block:
     def set_voltage(self, volt: float):
         self.manipulate(f'BIAS:DEV2:VOLT {volt}')
 
-    def measure_IV(self, v_from: float, v_to: float, points: int) -> defaultdict[list]:
+    def measure_IV(self, v_from: float, v_to: float, points: int):
         iv = defaultdict(list)
-        with socket.socket(socket.AF_UNIX, socket.socket.SOCK_STREAM) as s:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((self.HOST, self.PORT))
             for v in np.linspace(v_from, v_to, points):
                 s.sendall(bytes(f'BIAS:DEV2:VOLT {v}', 'utf-8'))
@@ -46,6 +47,7 @@ class Block:
                     i = s.recv(1024).decode().rstrip()
                     iv['I'].append(float(i))
                     iv['V'].append(v)
+                    # logger.info(f"volt {v}; curr {float(i)}")
         return iv
 
     def write_IV_csv(self, path):
@@ -67,7 +69,7 @@ class Block:
     def measure_reflection(self, v_from: float, v_to: float, v_points: int,
                            f_from: float, f_to: float, f_points: int, s_par, exp_path):
         refl = defaultdict(list)
-        with socket.socket(socket.AF_UNIX, socket.socket.SOCK_STREAM) as s:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((self.HOST, self.PORT))
             for v in np.linspace(v_from, v_to, v_points):
                 s.sendall(bytes(f'BIAS:DEV2:VOLT {v}', 'utf-8'))
@@ -88,11 +90,12 @@ class Block:
 
     def plot_iv(self, iv):
         plt.figure(figsize=(10, 6))
-        plt.plot(iv['V']*1000, iv['I']*1000)
+        plt.scatter(iv['V']*1000, iv['I']*1000)
         plt.xlabel('SIS Voltage, mV')
-        plt.ylabel(r'SIS Current, $\mu A$')
+        plt.ylabel('SIS Current, m A')
         plt.minorticks_on()
         plt.grid(which='minor', linestyle=':')
         plt.grid()
+        plt.show()
 
 
