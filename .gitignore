@@ -139,3 +139,4 @@ dmypy.json
 cython_debug/
 
 vna_cals/test.ipynb
+vna_cals/test.py
