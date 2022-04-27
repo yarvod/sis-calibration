@@ -240,8 +240,14 @@ class UI(Frame, Base):
         Button(iv_frame, text='Measure curve', command=lambda: self.meas_iv(save=True)) \
             .grid(row=1, column=0, padx=5, pady=5)
 
-        Button(iv_frame, text='Calculate offset', command=lambda: self.calc_offset()) \
+        Button(iv_frame, text='Measure refl', command=lambda: self.measure_reflection()) \
             .grid(row=1, column=1, padx=5, pady=5)
+
+        self.use_offset = BooleanVar()
+        Checkbutton(iv_frame, text='Use offset', var=self.use_offset).grid(row=2, column=0, padx=5, pady=5)
+
+        Button(iv_frame, text='Calculate offset', command=lambda: self.calc_offset()) \
+            .grid(row=2, column=1, padx=5, pady=5)
 
         nb.add(frame, text='I-V curve', underline=0, padding=2)
 
