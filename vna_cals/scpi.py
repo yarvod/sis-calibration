@@ -4,6 +4,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from vna import get_data
 from logger import logger
+import time
 
 ST_OK = 'OK'
 
@@ -27,10 +28,10 @@ class Block:
         return data.decode().rstrip()
 
     def get_current(self):
-        self.manipulate('BIAS:DEV2:CURR?')
+        return self.manipulate('BIAS:DEV2:CURR?')
 
     def get_voltage(self):
-        self.manipulate('BIAS:DEV2:VOLT?')
+        return self.manipulate('BIAS:DEV2:VOLT?')
 
     def set_voltage(self, volt: float):
         self.manipulate(f'BIAS:DEV2:VOLT {volt}')
@@ -39,27 +40,59 @@ class Block:
         iv = defaultdict(list)
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((self.HOST, self.PORT))
+            
+            s.sendall(bytes(f'BIAS:DEV2:VOLT?', 'utf-8'))
+            init_v = float(s.recv(1024).decode().rstrip())
             for v in np.linspace(v_from, v_to, points):
+
                 s.sendall(bytes(f'BIAS:DEV2:VOLT {v}', 'utf-8'))
+                if v == v_from or (v>2.6e-3 and v<2.9e-3) or (v>-2.9e-3 and v<-2.6e-3):
+                    time.sleep(0.1)
                 status = s.recv(1024).decode().rstrip()
                 if status == 'OK':
                     s.sendall(b'BIAS:DEV2:CURR?')
                     i = s.recv(1024).decode().rstrip()
+                    try:
+                        i = float(i)
+                    except ValueError:
+                        continue  # try again 
                     iv['I'].append(float(i))
                     iv['V'].append(v)
-                    # logger.info(f"volt {v}; curr {float(i)}")
+                    logger.info(f"volt {v}; curr {float(i)}")
+            s.sendall(bytes(f'BIAS:DEV2:VOLT {init_v}', 'utf-8'))
         return iv
 
-    def write_IV_csv(self, path):
+    # def measure_IV(self, v_from: float, v_to: float, points: int):
+    #     iv = defaultdict(list)
+        
+    #     init_v = self.get_voltage()
+    #     for v in np.linspace(v_from, v_to, points):
+
+    #         self.set_voltage(v)
+    #         if v == v_from or (v>2.6e-3 and v<2.9e-3):
+    #             time.sleep(0.1)
+    #         i = self.get_current()
+    #         try:
+    #             i = float(i)
+    #         except ValueError:
+    #             continue  # try again   
+    #         iv['I'].append(i)
+    #         iv['V'].append(v)
+
+    #         logger.info(f"volt {v}; curr {float(i)}")
+    #     self.set_voltage(init_v)
+    #     return iv
+
+    def write_IV_csv(self, path, iv):
         with open(f'{path}', 'w') as f:
             f.write('I,V')
-            for i, v in zip((self.IV['I'], self.IV['V'])):
+            for i, v in zip(iv['I'], iv['V']):
                 f.write(f"{i},{v}")
 
     def write_refl_csv(self, path):
         with open(f'{path}', 'w') as f:
             f.write(['freq'])
-            for i, v in zip((self.IV['I'], self.IV['V'])):
+            for i, v in zip(self.IV['I'], self.IV['V']):
                 f.write(f"{i},{v}")
 
     def calc_offset(self):
@@ -90,7 +123,7 @@ class Block:
 
     def plot_iv(self, iv):
         plt.figure(figsize=(10, 6))
-        plt.scatter(iv['V']*1000, iv['I']*1000)
+        plt.scatter(np.array(iv['V'])*1e3, np.array(iv['I'])*1e3, s=2)
         plt.xlabel('SIS Voltage, mV')
         plt.ylabel('SIS Current, m A')
         plt.minorticks_on()

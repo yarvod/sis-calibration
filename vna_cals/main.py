@@ -53,12 +53,15 @@ class Base:
                 self.IV_curve_path_rel.set(''.join(self.IV_curve_path.get().rsplit(self.exp_path.get())))
 
     # I-V curve
-    def meas_iv(self, plot=True):
+    def meas_iv(self, plot=True, save=False):
         iv = self.block.measure_IV(
             v_from=float(self.volt_start.get()),
             v_to=float(self.volt_stop.get()), points=int(self.iv_point_num.get()))
         if plot:
             self.block.plot_iv(iv)
+        if save:
+            path = filedialog.asksaveasfilename(defaultextension=".csv")
+            self.block.write_IV_csv(path=path, iv=iv)
 
     def calc_offset(self):
         pass
@@ -234,7 +237,7 @@ class UI(Frame, Base):
         Label(iv_frame, text='stop volt:').grid(row=0, column=4, padx=5, pady=5)
         Entry(iv_frame, textvariable=self.volt_stop).grid(row=0, column=5, padx=5, pady=5)
 
-        Button(iv_frame, text='Measure curve', command=lambda: self.meas_iv()) \
+        Button(iv_frame, text='Measure curve', command=lambda: self.meas_iv(save=True)) \
             .grid(row=1, column=0, padx=5, pady=5)
 
         Button(iv_frame, text='Calculate offset', command=lambda: self.calc_offset()) \
