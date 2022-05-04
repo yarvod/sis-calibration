@@ -66,12 +66,15 @@ class Base:
     def calc_offset(self):
         pass
 
-    def measure_reflection(self):
+    def measure_reflection(self, save=True):
         refl = self.block.measure_reflection(
-            v_from=self.volt_start.get(), v_to=self.volt_stop.get(), points=self.iv_point_num.get(),
-            f_from=float(self.freq_start.get()), f_to=float(self.freq_stop.get()), f_points=int(self.point_num),
+            v_from=float(self.volt_start.get()), v_to=float(self.volt_stop.get()), v_points=int(self.iv_point_num.get()),
+            f_from=float(self.freq_start.get()), f_to=float(self.freq_stop.get()), f_points=int(self.point_num.get()),
             s_par=self.s_param.get(), exp_path=self.exp_path.get()
         )
+        if save:
+            path = filedialog.asksaveasfilename(defaultextension=".csv")
+            self.block.write_refl_csv(path=path, refl=refl)
 
 
 class UI(Frame, Base):

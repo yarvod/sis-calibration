@@ -1,10 +1,12 @@
 import socket
 from collections import defaultdict
 import numpy as np
+import pandas as pd
 from matplotlib import pyplot as plt
 from vna import get_data
 from logger import logger
 import time
+import csv
 
 ST_OK = 'OK'
 
@@ -55,45 +57,23 @@ class Block:
                     try:
                         i = float(i)
                     except ValueError:
-                        continue  # try again 
+                        continue  # FIXME: try again 
                     iv['I'].append(float(i))
                     iv['V'].append(v)
                     logger.info(f"volt {v}; curr {float(i)}")
             s.sendall(bytes(f'BIAS:DEV2:VOLT {init_v}', 'utf-8'))
         return iv
 
-    # def measure_IV(self, v_from: float, v_to: float, points: int):
-    #     iv = defaultdict(list)
-        
-    #     init_v = self.get_voltage()
-    #     for v in np.linspace(v_from, v_to, points):
-
-    #         self.set_voltage(v)
-    #         if v == v_from or (v>2.6e-3 and v<2.9e-3):
-    #             time.sleep(0.1)
-    #         i = self.get_current()
-    #         try:
-    #             i = float(i)
-    #         except ValueError:
-    #             continue  # try again   
-    #         iv['I'].append(i)
-    #         iv['V'].append(v)
-
-    #         logger.info(f"volt {v}; curr {float(i)}")
-    #     self.set_voltage(init_v)
-    #     return iv
-
     def write_IV_csv(self, path, iv):
         with open(f'{path}', 'w') as f:
-            f.write('I,V')
+            writer = csv.writer(f)
+            writer.writerow(['I','V'])
             for i, v in zip(iv['I'], iv['V']):
-                f.write(f"{i},{v}")
+                writer.writerow([i,v])
 
-    def write_refl_csv(self, path):
-        with open(f'{path}', 'w') as f:
-            f.write(['freq'])
-            for i, v in zip(self.IV['I'], self.IV['V']):
-                f.write(f"{i},{v}")
+    def write_refl_csv(self, path, refl):
+        df = pd.DataFrame(refl)
+        df.to_csv(path, index=False)
 
     def calc_offset(self):
         iv1 = self.measure_IV(v_from=0, v_to=7e-3, points=300)
@@ -104,10 +84,21 @@ class Block:
         refl = defaultdict(list)
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((self.HOST, self.PORT))
+
+            s.sendall(bytes(f'BIAS:DEV2:VOLT?', 'utf-8'))    
+            init_v = float(s.recv(1024).decode().rstrip())
             for v in np.linspace(v_from, v_to, v_points):
                 s.sendall(bytes(f'BIAS:DEV2:VOLT {v}', 'utf-8'))
                 status = s.recv(1024).decode().rstrip()
                 if status == 'OK':
+                    time.sleep(0.2)
+                    s.sendall(b'BIAS:DEV2:CURR?')
+                    i = s.recv(1024).decode().rstrip()
+                    try:
+                        i = float(i)
+                    except ValueError:
+                        continue  # FIXME: try again
+
                     res = get_data(
                         param=s_par,
                         plot=False,
@@ -115,10 +106,10 @@ class Block:
                         freq_start=f_from, freq_stop=f_to,
                         exp_path=exp_path,
                         freq_num=f_points or 201)
-                    refl[v] = res['trace']
-                    if not refl['freq']:
-                        refl['freq'] = res['freq']
 
+                    refl[f"v={v};i={i}"] = res['trace']
+
+        refl['freq'] = res['freq']
         return refl
 
     def plot_iv(self, iv):
