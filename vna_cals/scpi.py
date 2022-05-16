@@ -48,16 +48,19 @@ class Block:
             for v in np.linspace(v_from, v_to, points):
 
                 s.sendall(bytes(f'BIAS:DEV2:VOLT {v}', 'utf-8'))
-                if v == v_from or (v>2.6e-3 and v<2.9e-3) or (v>-2.9e-3 and v<-2.6e-3):
-                    time.sleep(0.1)
+                if v == v_from or (2.6e-3 < v < 2.9e-3) or (-2.9e-3 < v < -2.6e-3):
+                    time.sleep(0.2)
                 status = s.recv(1024).decode().rstrip()
                 if status == 'OK':
-                    s.sendall(b'BIAS:DEV2:CURR?')
-                    i = s.recv(1024).decode().rstrip()
-                    try:
-                        i = float(i)
-                    except ValueError:
-                        continue  # FIXME: try again 
+                    while 1:
+                        try:
+                            time.sleep(0.1)
+                            s.sendall(b'BIAS:DEV2:CURR?')
+                            i = s.recv(1024).decode().rstrip()
+                            i = float(i)
+                            break
+                        except ValueError:
+                            continue
                     iv['I'].append(float(i))
                     iv['V'].append(v)
                     logger.info(f"volt {v}; curr {float(i)}")
@@ -89,15 +92,20 @@ class Block:
             init_v = float(s.recv(1024).decode().rstrip())
             for v in np.linspace(v_from, v_to, v_points):
                 s.sendall(bytes(f'BIAS:DEV2:VOLT {v}', 'utf-8'))
-                status = s.recv(1024).decode().rstrip()
-                if status == 'OK':
+                if v == v_from or (2.6e-3 < v < 2.9e-3) or (-2.9e-3 < v < -2.6e-3):
                     time.sleep(0.2)
-                    s.sendall(b'BIAS:DEV2:CURR?')
-                    i = s.recv(1024).decode().rstrip()
-                    try:
-                        i = float(i)
-                    except ValueError:
-                        continue  # FIXME: try again
+                status = s.recv(1024).decode().rstrip()
+                i = 0
+                if status == 'OK':
+                    while 1:
+                        try:
+                            time.sleep(0.2)
+                            s.sendall(b'BIAS:DEV2:CURR?')
+                            i = s.recv(1024).decode().rstrip()
+                            i = float(i)
+                            break
+                        except ValueError:
+                            continue
 
                     res = get_data(
                         param=s_par,
