@@ -10,7 +10,7 @@ def get_data(param, exp_path, freq_start=3.5e9, freq_stop=8.5e9, freq_num=201, v
     title = 'IF Reflection'
     plot_phase = plot_phase
     exp_path = exp_path
-    IP = '10.208.234.8'
+    IP = '192.168.1.33'
     ZNB.ZNB.close_all()
     vna = ZNB.ZNB('VNA', f"TCPIP0::{IP}::INSTR", init_s_params=False)
     station = qcodes.Station(vna)

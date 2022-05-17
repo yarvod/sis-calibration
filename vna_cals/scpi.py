@@ -4,16 +4,19 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from vna import get_data
-from logger import logger
 import time
 import csv
+import logger as mylogger
+import logging
+
+logger = logging.getLogger(__name__)
 
 ST_OK = 'OK'
 
 
 class Block:
 
-    HOST = '169.254.190.83'
+    HOST = '192.168.1.34'
     PORT = 9876
 
     IV = defaultdict(list)
@@ -52,6 +55,7 @@ class Block:
                     time.sleep(0.2)
                 status = s.recv(1024).decode().rstrip()
                 if status == 'OK':
+                    i = 0
                     while 1:
                         try:
                             time.sleep(0.1)
