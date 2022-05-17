@@ -119,7 +119,7 @@ class Block:
                         exp_path=exp_path,
                         freq_num=f_points or 201)
 
-                    refl[f"v={v};i={i}"] = res['trace']
+                    refl[f"{v};{i}"] = res['trace']
 
         refl['freq'] = res['freq']
         return refl
