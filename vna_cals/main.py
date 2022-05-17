@@ -26,7 +26,8 @@ class Base:
                  plot_phase=self.plot_phase.get(),
                  freq_start=start, freq_stop=stop,
                  exp_path=self.exp_path.get(),
-                 freq_num=int(self.point_num.get()) or 201)
+                 freq_num=int(self.point_num.get()) or 201,
+                 avg=self.vna_avg.get())
 
         if save:
             pic_path = filedialog.asksaveasfilename(defaultextension=".csv")
@@ -70,7 +71,7 @@ class Base:
         refl = self.block.measure_reflection(
             v_from=float(self.volt_start.get()), v_to=float(self.volt_stop.get()), v_points=int(self.iv_point_num.get()),
             f_from=float(self.freq_start.get()), f_to=float(self.freq_stop.get()), f_points=int(self.point_num.get()),
-            s_par=self.s_param.get(), exp_path=self.exp_path.get()
+            s_par=self.s_param.get(), exp_path=self.exp_path.get(), avg=self.vna_avg.get()
         )
         if save:
             path = filedialog.asksaveasfilename(defaultextension=".csv")
@@ -148,10 +149,15 @@ class UI(Frame, Base):
         Label(frame, text='stop freq:').grid(row=3, column=0, padx=5, pady=5)
         Entry(frame, textvariable=self.freq_stop).grid(row=3, column=1, padx=5, pady=5)
 
-        Button(frame, text='Show', command=self.show_data).grid(row=4, column=0, padx=5, pady=5)
-        Button(frame, text='Show&Save', command=lambda: self.show_data(True)).grid(row=4, column=1, padx=5, pady=5)
+        self.vna_avg = IntVar()
+        self.vna_avg.set(1)
+        Label(frame, text='avg:').grid(row=4, column=0, padx=5, pady=5)
+        Entry(frame, textvariable=self.vna_avg).grid(row=4, column=1, padx=5, pady=5)
+
+        Button(frame, text='Show', command=self.show_data).grid(row=5, column=0, padx=5, pady=5)
+        Button(frame, text='Show&Save', command=lambda: self.show_data(True)).grid(row=5, column=1, padx=5, pady=5)
         self.plot_phase = BooleanVar()
-        Checkbutton(frame, text='Plot phase', var=self.plot_phase).grid(row=4, column=2, padx=5, pady=5)
+        Checkbutton(frame, text='Plot phase', var=self.plot_phase).grid(row=5, column=2, padx=5, pady=5)
 
         # add to notebook (underline = index for short-cut character)
         nb.add(frame, text='VNA', underline=0, padding=2)

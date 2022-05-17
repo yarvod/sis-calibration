@@ -5,7 +5,7 @@ import qcodes.instrument_drivers.rohde_schwarz.ZNB as ZNB
 import qcodes
 
 
-def get_data(param, exp_path, freq_start=3.5e9, freq_stop=8.5e9, freq_num=201, vna_power=-30, aver=False, num=None,
+def get_data(param, exp_path, freq_start=3.5e9, freq_stop=8.5e9, freq_num=201, vna_power=-30, avg=None, aver=False, num=None,
              mov_aver=False, span=None, plot=False, plot_phase=False, save=True):
     title = 'IF Reflection'
     plot_phase = plot_phase
@@ -31,6 +31,8 @@ def get_data(param, exp_path, freq_start=3.5e9, freq_stop=8.5e9, freq_num=201, v
     vna.channels.stop(freq_stop)
     vna.channels.npts(freq_num)
     vna.channels.power(vna_power)
+    if avg:
+        vna.channels.avg(avg)
     vna.channels.autoscale()
 
     if aver:

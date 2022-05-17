@@ -64,6 +64,7 @@ class Block:
                             i = float(i)
                             break
                         except ValueError:
+                            logger.error(f'Error with {v} (v); i = {i}')
                             continue
                     iv['I'].append(float(i))
                     iv['V'].append(v)
@@ -87,7 +88,7 @@ class Block:
         iv2 = self.measure_IV(v_from=7e-3, v_to=0, points=300)
 
     def measure_reflection(self, v_from: float, v_to: float, v_points: int,
-                           f_from: float, f_to: float, f_points: int, s_par, exp_path):
+                           f_from: float, f_to: float, f_points: int, s_par, exp_path, avg: int):
         refl = defaultdict(list)
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((self.HOST, self.PORT))
@@ -109,6 +110,7 @@ class Block:
                             i = float(i)
                             break
                         except ValueError:
+                            logger.error(f'Error with {v} (v); i = {i}')
                             continue
 
                     res = get_data(
@@ -117,9 +119,13 @@ class Block:
                         plot_phase=False,
                         freq_start=f_from, freq_stop=f_to,
                         exp_path=exp_path,
-                        freq_num=f_points or 201)
+                        freq_num=f_points or 201,
+                        avg=int(avg)
+                    )
 
                     refl[f"{v};{i}"] = res['trace']
+
+            s.sendall(bytes(f'BIAS:DEV2:VOLT {init_v}', 'utf-8'))
 
         refl['freq'] = res['freq']
         return refl
