@@ -10,7 +10,7 @@ from scpi import Block
 class Base:
 
     block = Block()
-    mixer = Mixer()
+    # mixer = Mixer()
 
     # SetUp
     def browse_button(self):

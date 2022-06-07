@@ -11,6 +11,12 @@ from qmix.mathfn.misc import slope
 from scipy.constants import e, hbar
 from scipy.optimize import curve_fit
 
+# from .logger import *
+# import logging
+
+
+# logger = logging.getLogger(__name__)
+
 
 def reim(df, num):
     data_z = np.zeros(shape=(num), dtype=np.complex128)
@@ -55,51 +61,25 @@ def deriv(x, y):
 
 class Measure:
 
-    def __init__(self, meas_path, cal_path, resistance, point_num, rho=50):
-        self.open_csv_path = cal_path.get('open')
-        self.short_csv_path = cal_path.get('short')
-        self.load_csv_path = cal_path.get('load')
-        self.point_csv_path = meas_path or None
-
-        self.open_z = np.vectorize(resistance.get('open')) or None
-        self.short_z = np.vectorize(resistance.get('short')) or None
-        self.load_z = np.vectorize(resistance.get('load')) or None
+    def __init__(self, meas, cals, cal_impedance, point_num, freq_list, rho=50):
+        self.meas = meas
+        self.cals = cals
+        self.open_z = np.vectorize(cal_impedance.get('open')) or None
+        self.short_z = np.vectorize(cal_impedance.get('short')) or None
+        self.load_z = np.vectorize(cal_impedance.get('load')) or None
         self.rho = rho
+
+        self.freq_list = freq_list / 1e9
 
         self.point_num = point_num
 
-    @staticmethod
-    def _parse_csv(csv_table_path):
-        with open(csv_table_path, 'r') as csv_file:
-            table = csv.reader(csv_file)
-            table_list = []
-            for row in table:
-                if '#' not in row[0]:
-                    if '' in row:
-                        row.remove('')
-                    table_list.append(row)
-            df_data = pd.DataFrame(table_list[1:], columns=table_list[0])
-            return df_data
-
     def _get_z(self, calibrate=False):
-        self.cal_load_z = np.zeros(shape=(self.point_num), dtype=np.complex128)
-        self.cal_load_z.real = np.array(self._parse_csv(self.load_csv_path).iloc(axis=1)[1], dtype=np.float64)
-        self.cal_load_z.imag = np.array(self._parse_csv(self.load_csv_path).iloc(axis=1)[2], dtype=np.float64)
-
-        self.cal_open_z = np.zeros(shape=(self.point_num), dtype=np.complex128)
-        self.cal_open_z.real = np.array(self._parse_csv(self.open_csv_path).iloc(axis=1)[1], dtype=np.float64)
-        self.cal_open_z.imag = np.array(self._parse_csv(self.open_csv_path).iloc(axis=1)[2], dtype=np.float64)
-
-        self.cal_short_z = np.zeros(shape=(self.point_num), dtype=np.complex128)
-        self.cal_short_z.real = np.array(self._parse_csv(self.short_csv_path).iloc(axis=1)[1], dtype=np.float64)
-        self.cal_short_z.imag = np.array(self._parse_csv(self.short_csv_path).iloc(axis=1)[2], dtype=np.float64)
+        self.cal_load_z = self.cals.iloc[:,2]
+        self.cal_open_z = self.cals.iloc[:,0]
+        self.cal_short_z = self.cals.iloc[:,1]
 
         if calibrate:
-            self.point_z = np.zeros(shape=(self.point_num), dtype=np.complex128)
-            self.point_z.real = np.array(self._parse_csv(self.point_csv_path).iloc(axis=1)[1], dtype=np.float64)
-            self.point_z.imag = np.array(self._parse_csv(self.point_csv_path).iloc(axis=1)[2], dtype=np.float64)
-
-        self.freq_list = np.array(self._parse_csv(self.point_csv_path).iloc(axis=1)[0], dtype=np.float64) / 1000000000
+            self.point_z = np.array(self.meas, dtype=np.complex128)
 
     @staticmethod
     def _E_matrix(C, V):
@@ -217,31 +197,12 @@ class Measure:
 
 class Mixer:
 
-    def __init__(self):
-        self.csv_path = None
-        self.table = None
-        self.I = None
-        self.V = None
-
-        self.V_bias = None
-        self.rho = None
-
-        self.resp = None
-        self.cal_path = None
-        self.point_num = None
-
-        self.meas_path = None
-
-        self.freq_list = None
-
-        self._measures = defaultdict(Measure)
-        self.cal_impedance = None
-
-    def set_params(self, IV_csv_path, meas_path, cal_path, V_bias, point_num, rho=50):
-        self.csv_path = IV_csv_path
-        self.table = pd.read_csv(IV_csv_path)
-        self.I = np.array(self.table['I'])
-        self.V = np.array(self.table['V'])
+    def __init__(self, meas_path, cal_path, V_bias, point_num, rho=50):
+        self.meas_table = pd.read_csv(meas_path)
+        self.cal_table = pd.read_csv(cal_path)
+        self.IV_curve = dict((float(s.split(';')[0]), float(s.split(';')[1])) for s in self.cal_table.columns[:-1])
+        self.I = np.array(list(self.IV_curve.keys()))
+        self.V = np.array(list(self.IV_curve.values()))
 
         self.V_bias = V_bias
         self.rho = rho
@@ -250,11 +211,7 @@ class Mixer:
         self.cal_path = cal_path
         self.point_num = point_num
 
-        if type(meas_path) == str:
-            meas_path = [meas_path]
-        self.meas_path = meas_path
-
-        self.freq_list = np.array(Measure._parse_csv(self.meas_path[0]).iloc(axis=1)[0], dtype=np.float64)
+        self.freq_list = np.array(self.meas_table.pop('freq'), dtype=np.float64)
 
         self._measures = defaultdict(Measure)
         self.cal_impedance = None
@@ -270,13 +227,20 @@ class Mixer:
     def set_measures(self, recalculate=False):
         if recalculate or not self.cal_impedance:
             self.set_cal_impedance()
-        for meas_path in self.meas_path:
-            key = meas_path.split('/')[-1].split('.csv')[0]
-            self._measures[key] = Measure(meas_path, self.cal_path, self.cal_impedance,
-                                          point_num=self.point_num, rho=self.rho)
+        for vi, meas in self.meas_table.items():
+            key = vi
+            self._measures[key] = Measure(meas, self.cals, self.cal_impedance,
+                                          point_num=self.point_num, rho=self.rho, freq_list=self.freq_list)
 
     def remove_measures(self):
         self._measures = defaultdict(Measure)
+
+    @property
+    def cals(self):
+        open = self.cal_table.filter(like=f"{self.V_bias['open']}").iloc[:,0]
+        short = self.cal_table.filter(like=f"{self.V_bias['short']}").iloc[:,0]
+        load = self.cal_table.filter(like=f"{self.V_bias['load']}").iloc[:,0]
+        return pd.DataFrame((open, short, load), dtype=complex).T
 
     @property
     def Vn(self):
@@ -296,6 +260,7 @@ class Mixer:
     def Vgap(self):
         cond = slope(self.V, self.I)
         ind = np.where(cond == np.max(cond))
+        
         return self.V[ind]
 
     @staticmethod
@@ -441,12 +406,10 @@ class Mixer:
         plt.show()
 
 
-def mixing(meas_path, cal_path, IV_csv_path, V_bias, point_num=300, rho=50):
-    mixer = Mixer()
-    mixer.set_params(
+def mixing(meas_path, cal_path, V_bias, point_num=300, rho=50):
+    mixer = Mixer(
         meas_path=meas_path,
         cal_path=cal_path,
-        IV_csv_path=IV_csv_path,
         V_bias=V_bias,
         point_num=point_num,
         rho=rho

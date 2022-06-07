@@ -4,13 +4,15 @@ import csv, os
 import qcodes.instrument_drivers.rohde_schwarz.ZNB as ZNB
 import qcodes
 
+from config import VNA_IP
+
 
 def get_data(param, exp_path, freq_start=3.5e9, freq_stop=8.5e9, freq_num=201, vna_power=-30, avg=None, aver=False, num=None,
              mov_aver=False, span=None, plot=False, plot_phase=False, save=True):
     title = 'IF Reflection'
     plot_phase = plot_phase
     exp_path = exp_path
-    IP = '192.168.1.33'
+    IP = VNA_IP
     ZNB.ZNB.close_all()
     vna = ZNB.ZNB('VNA', f"TCPIP0::{IP}::INSTR", init_s_params=False)
     station = qcodes.Station(vna)

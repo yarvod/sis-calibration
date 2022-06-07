@@ -9,6 +9,8 @@ import csv
 import logger as mylogger
 import logging
 
+from config import BLOCK_IP
+
 logger = logging.getLogger(__name__)
 
 ST_OK = 'OK'
@@ -16,7 +18,7 @@ ST_OK = 'OK'
 
 class Block:
 
-    HOST = '192.168.1.34'
+    HOST = BLOCK_IP
     PORT = 9876
 
     IV = defaultdict(list)
@@ -51,24 +53,23 @@ class Block:
             for v in np.linspace(v_from, v_to, points):
 
                 s.sendall(bytes(f'BIAS:DEV2:VOLT {v}', 'utf-8'))
-                if v == v_from or (2.6e-3 < v < 2.9e-3) or (-2.9e-3 < v < -2.6e-3):
+                if v == v_from or (2.5e-3 < v < 2.9e-3) or (-2.9e-3 < v < -2.5e-3):
                     time.sleep(0.2)
                 status = s.recv(1024).decode().rstrip()
-                if status == 'OK':
-                    i = 0
-                    while 1:
-                        try:
-                            time.sleep(0.1)
-                            s.sendall(b'BIAS:DEV2:CURR?')
-                            i = s.recv(1024).decode().rstrip()
-                            i = float(i)
-                            break
-                        except ValueError:
-                            logger.error(f'Error with {v} (v); i = {i}')
-                            continue
-                    iv['I'].append(float(i))
-                    iv['V'].append(v)
-                    logger.info(f"volt {v}; curr {float(i)}")
+                i = 0
+                while 1:
+                    try:
+                        time.sleep(0.1)
+                        s.sendall(b'BIAS:DEV2:CURR?')
+                        i = s.recv(1024).decode().rstrip()
+                        i = float(i)
+                        break
+                    except ValueError:
+                        logger.error(f'Error with v = {v}; i = {i}')
+                        continue
+                iv['I'].append(float(i))
+                iv['V'].append(v)
+                logger.info(f"volt {v}; curr {float(i)}")
             s.sendall(bytes(f'BIAS:DEV2:VOLT {init_v}', 'utf-8'))
         return iv
 
@@ -101,29 +102,28 @@ class Block:
                     time.sleep(0.2)
                 status = s.recv(1024).decode().rstrip()
                 i = 0
-                if status == 'OK':
-                    while 1:
-                        try:
-                            time.sleep(0.2)
-                            s.sendall(b'BIAS:DEV2:CURR?')
-                            i = s.recv(1024).decode().rstrip()
-                            i = float(i)
-                            break
-                        except ValueError:
-                            logger.error(f'Error with {v} (v); i = {i}')
-                            continue
+                while 1:
+                    try:
+                        time.sleep(0.2)
+                        s.sendall(b'BIAS:DEV2:CURR?')
+                        i = s.recv(1024).decode().rstrip()
+                        i = float(i)
+                        break
+                    except ValueError:
+                        logger.error(f'Error with v = {v}; i = {i}')
+                        continue
 
-                    res = get_data(
-                        param=s_par,
-                        plot=False,
-                        plot_phase=False,
-                        freq_start=f_from, freq_stop=f_to,
-                        exp_path=exp_path,
-                        freq_num=f_points or 201,
-                        avg=int(avg)
-                    )
+                res = get_data(
+                    param=s_par,
+                    plot=False,
+                    plot_phase=False,
+                    freq_start=f_from, freq_stop=f_to,
+                    exp_path=exp_path,
+                    freq_num=f_points or 201,
+                    avg=int(avg)
+                )
 
-                    refl[f"{v};{i}"] = res['trace']
+                refl[f"{v};{i}"] = res['trace']
 
             s.sendall(bytes(f'BIAS:DEV2:VOLT {init_v}', 'utf-8'))
 
