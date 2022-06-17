@@ -59,6 +59,30 @@ def deriv(x, y):
     return 1 / der
 
 
+def calc_offset(V, I):
+    I = np.array(list(I))
+    V = np.array(list(V))
+    
+    slp = slope(V, I)
+    
+    ind_v_pos = np.where(V>0.002)
+    ind_v_neg = np.where(V<-0.002)
+    
+    ind_max_right = np.where(slp==np.max(slp[ind_v_pos]))
+    ind_max_left = np.where(slp==np.max(slp[ind_v_neg]))
+    
+    aver = (V[ind_max_right] - V[ind_max_left]) / 2
+    
+    offset_v = aver - V[ind_max_right]  # for addition
+    
+    V = V + offset_v
+    v_nearest2zero = min(abs(V))
+    ind_0 = np.where((V==v_nearest2zero)|(V==-v_nearest2zero))
+    offset_i = - I[ind_0]  # for addition
+    
+    return offset_v, offset_i
+
+
 class Measure:
 
     def __init__(self, meas, cals, cal_impedance, point_num, freq_list, rho=50):

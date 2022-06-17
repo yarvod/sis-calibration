@@ -53,7 +53,7 @@ class Block:
             for v in np.linspace(v_from, v_to, points):
 
                 s.sendall(bytes(f'BIAS:DEV2:VOLT {v}', 'utf-8'))
-                if v == v_from or (2.5e-3 < v < 2.9e-3) or (-2.9e-3 < v < -2.5e-3):
+                if v == v_from or (2.1e-3 < v < 2.5e-3) or (-2.5e-3 < v < -2.1e-3):
                     time.sleep(0.2)
                 status = s.recv(1024).decode().rstrip()
                 i = 0
@@ -98,7 +98,7 @@ class Block:
             init_v = float(s.recv(1024).decode().rstrip())
             for v in np.linspace(v_from, v_to, v_points):
                 s.sendall(bytes(f'BIAS:DEV2:VOLT {v}', 'utf-8'))
-                if v == v_from or (2.6e-3 < v < 2.9e-3) or (-2.9e-3 < v < -2.6e-3):
+                if v == v_from or (2.1e-3 < v < 2.5e-3) or (-2.5e-3 < v < -2.1e-3):
                     time.sleep(0.2)
                 status = s.recv(1024).decode().rstrip()
                 i = 0
@@ -122,7 +122,7 @@ class Block:
                     freq_num=f_points or 201,
                     avg=int(avg)
                 )
-
+                logger.info(f"volt {v}; curr {float(i)}")
                 refl[f"{v};{i}"] = res['trace']
 
             s.sendall(bytes(f'BIAS:DEV2:VOLT {init_v}', 'utf-8'))
