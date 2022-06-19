@@ -99,15 +99,3 @@ def save_calibrated_data(data_path, exp_path):
     if os.path.exists(f'{exp_path}/current/calibrated_data.csv') and data_path:
         os.replace(f'{exp_path}/current/calibrated_data.csv', f"{data_path}")
 
-def av(num, vna):
-    all_data = []
-    for i in range(num):
-        all_data.append(list(vna.channels.trace.get()[0]))
-    all_data = np.array(all_data)
-    return np.mean(all_data, axis=0)
-
-
-def mov_av(a, n=3):
-    ret = np.cumsum(a, dtype=np.complex)
-    ret[n:] = ret[n:] - ret[:-n]
-    return ret[n - 1:] / n

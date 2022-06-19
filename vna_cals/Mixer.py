@@ -13,8 +13,6 @@ from scipy.optimize import curve_fit
 
 # from .logger import *
 # import logging
-
-
 # logger = logging.getLogger(__name__)
 
 
@@ -43,20 +41,6 @@ def moving_average(a, n=3):
 
 def power_aver(vec, n):
     return 10*np.log10(moving_average((np.abs(vec))**2, n))
-
-
-def deriv(x, y):
-    """
-    :param list x:
-    :param list y:
-    :return: derivative vector
-    """
-    der = []
-    for i in range(len(y) - 1):
-        der.append((x[i + 1] - x[i]) / (y[i + 1] - y[i]))
-
-    der = np.array(der)
-    return 1 / der
 
 
 def calc_offset(V, I):
@@ -97,13 +81,12 @@ class Measure:
 
         self.point_num = point_num
 
-    def _get_z(self, calibrate=False):
+    def _get_z(self):
         self.cal_load_z = self.cals.iloc[:,2]
         self.cal_open_z = self.cals.iloc[:,0]
         self.cal_short_z = self.cals.iloc[:,1]
 
-        if calibrate:
-            self.point_z = np.array(self.meas, dtype=np.complex128)
+        self.point_z = np.array(self.meas, dtype=np.complex128)
 
     @staticmethod
     def _E_matrix(C, V):
@@ -128,7 +111,7 @@ class Measure:
 
     def calibrate(self):
 
-        self._get_z(calibrate=True)
+        self._get_z()
 
         G_a_1 = self._gamma_cal(self.load_z(self.freq_list * 1e9))  # Actual match load
         G_a_2 = self._gamma_cal(self.open_z(self.freq_list * 1e9))  # Actual open
@@ -194,7 +177,7 @@ class Measure:
         plt.title(title)
 
         lgnd = ['open', 'short', 'load']
-        self._get_z(plot_calibrated or plot_measured)
+        self._get_z()
         plt.plot(self.freq_list, 20 * np.log10(np.abs(self.cal_open_z)))
         plt.plot(self.freq_list, 20 * np.log10(np.abs(self.cal_short_z)))
         plt.plot(self.freq_list, 20 * np.log10(np.abs(self.cal_load_z)))
@@ -215,24 +198,34 @@ class Measure:
         plt.grid()
 
         if save:
-            plt.savefig(pic_path + pic_name + '.pdf', dpi=400)
+            plt.savefig(pic_path + pic_name + '.png', dpi=400)
         plt.show()
 
 
 class Mixer:
 
-    def __init__(self, meas_path, cal_path, V_bias, point_num, rho=50):
-        self.meas_table = pd.read_csv(meas_path)
-        self.cal_table = pd.read_csv(cal_path)
-        self.IV_curve = dict((float(s.split(';')[0]), float(s.split(';')[1])) for s in self.cal_table.columns[:-1])
-        self.I = np.array(list(self.IV_curve.keys()))
-        self.V = np.array(list(self.IV_curve.values()))
+    def __init__(self, meas_table, cal_table, V_bias, point_num, LO_rate, offset=(0,0), rho=50):
+        self.meas_table = meas_table
+        self.cal_table = cal_table
+        self.offset = offset
+
+        self.IV_curve = dict(
+            (
+                float(s.split(';')[0]) + self.offset[0], 
+                float(s.split(';')[1]) + self.offset[1]
+            ) 
+            for s in self.cal_table.columns[:-1]
+        )
+
+        self.LO_rate = LO_rate
+
+        self.I = np.array(list(self.IV_curve.values()))
+        self.V = np.array(list(self.IV_curve.keys()))
 
         self.V_bias = V_bias
         self.rho = rho
 
         self.resp = RespFnFromIVData(self.Vn, self.In)
-        self.cal_path = cal_path
         self.point_num = point_num
 
         self.freq_list = np.array(self.meas_table.pop('freq'), dtype=np.float64)
@@ -252,7 +245,7 @@ class Mixer:
         if recalculate or not self.cal_impedance:
             self.set_cal_impedance()
         for vi, meas in self.meas_table.items():
-            key = vi
+            key = f"{float(vi.split(';')[0]) + self.offset[0]};{float(vi.split(';')[1]) + self.offset[1]}"
             self._measures[key] = Measure(meas, self.cals, self.cal_impedance,
                                           point_num=self.point_num, rho=self.rho, freq_list=self.freq_list)
 
@@ -310,9 +303,9 @@ class Mixer:
         f_im = lambda x, a1, a2, a3, a4: a1 * x ** 3 + a2 * x ** 2 + a3 * x + a4
 
         for nu0 in nu0_range:
-            z_open = self.Z(nu=600 * 10 ** 9, nu0=nu0, V0=self.V_bias['open'], al=0.01)
-            z_short = self.Z(nu=600 * 10 ** 9, nu0=nu0, V0=self.V_bias['short'], al=0.01)
-            z_load = self.Z(nu=600 * 10 ** 9, nu0=nu0, V0=self.V_bias['load'], al=0.01)
+            z_open = self.Z(nu=self.LO_rate, nu0=nu0, V0=self.V_bias['open'], al=0.01)
+            z_short = self.Z(nu=self.LO_rate, nu0=nu0, V0=self.V_bias['short'], al=0.01)
+            z_load = self.Z(nu=self.LO_rate, nu0=nu0, V0=self.V_bias['load'], al=0.01)
 
             res['open']['re'].append(z_open.real)
             res['open']['im'].append(z_open.imag)
@@ -430,12 +423,14 @@ class Mixer:
         plt.show()
 
 
-def mixing(meas_path, cal_path, V_bias, point_num=300, rho=50):
+def mixing(meas_table, cal_table, V_bias, LO_rate, offset=(0,0), point_num=300, rho=50):
     mixer = Mixer(
-        meas_path=meas_path,
-        cal_path=cal_path,
+        meas_table=meas_table,
+        cal_table=cal_table,
         V_bias=V_bias,
         point_num=point_num,
+        offset=offset,
+        LO_rate=LO_rate,
         rho=rho
     )
     mixer.set_measures()
