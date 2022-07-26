@@ -204,10 +204,11 @@ class Measure:
 
 class Mixer:
 
-    def __init__(self, meas_table, cal_table, V_bias, point_num, LO_rate, offset=(0,0), rho=50):
+    def __init__(self, meas_table, cal_table, V_bias, point_num, LO_rate, Ym=None, offset=(0,0), rho=50):
         self.meas_table = meas_table
         self.cal_table = cal_table
         self.offset = offset
+        self.Ym = Ym
 
         self.IV_curve = dict(
             (
@@ -378,18 +379,25 @@ class Mixer:
                 b[m + d][m1 + d] *= e / (2 * hbar * om0)
         return b
 
-    def Z(self, nu, nu0, V0, al, lim=10, mrange=[0]):
+    def Z(self, nu, nu0, V0, al, lim=10, mrange=[-1,0,1]):
         """
         :param float nu: FFO rate
         :param float nu0: IF rate
         :param float V0: V bias
         :param float al: pumping level
         """
-        g = np.array(self._G(nu, nu0, V0, al, lim, mrange))[max(mrange)][max(mrange)]
-        b = np.array(self._B(nu, nu0, V0, al, lim, mrange))[max(mrange)][max(mrange)]
-        y = g + b * 1j
+        g = np.array(self._G(nu, nu0, V0, al, lim, mrange))
+        b = np.array(self._B(nu, nu0, V0, al, lim, mrange))
+        
+        if self.Ym:
+            y = g + np.eye(3,3) * self.Ym + b * 1j
+            return np.linalg.inv(y)[1][1]
 
-        return 1 / y
+        else:
+            y = g[max(mrange)] + b[max(mrange)] * 1j
+            return 1 / y
+
+        
 
     def Ip(self, V0, al=0.2, nu=600 * 10 ** 9, lim=10):
         """

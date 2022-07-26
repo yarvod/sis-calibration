@@ -44,41 +44,108 @@ class Block:
         self.manipulate(f'BIAS:DEV2:VOLT {volt}')
 
     def measure_IV(self, v_from: float, v_to: float, points: int):
+        ats = 10
         iv = defaultdict(list)
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((self.HOST, self.PORT))
             
-            s.sendall(bytes(f'BIAS:DEV2:VOLT?', 'utf-8'))
-            init_v = float(s.recv(1024).decode().rstrip())
+            init_v = 0
+            at=0
+            while at<ats:
+                try:
+                    at += 1
+                    time.sleep(0.3)
+                    s.sendall(b'BIAS:DEV2:VOLT?')
+                    init_v = s.recv(1024)
+                    init_v.decode().rstrip()
+                    init_v = float(init_v)
+                    logger.debug(f'Recieved value: {init_v}; attempt {at}')
+                    break
+                except Exception as e:
+                    logger.warning(f'Exception: {e}; att {at}')
+                    continue
+            init_time = time.time()
             for v in np.linspace(v_from, v_to, points):
 
-                s.sendall(bytes(f'BIAS:DEV2:VOLT {v}', 'utf-8'))
-                if v == v_from or (2.1e-3 < v < 2.5e-3) or (-2.5e-3 < v < -2.1e-3):
-                    time.sleep(0.2)
-                status = s.recv(1024).decode().rstrip()
-                i = 0
-                while 1:
+                status = ''
+                at=0
+                while at<ats:
                     try:
-                        time.sleep(0.1)
-                        s.sendall(b'BIAS:DEV2:CURR?')
-                        i = s.recv(1024).decode().rstrip()
-                        i = float(i)
+                        at += 1
+                        s.sendall(bytes(f'BIAS:DEV2:VOLT {v}', 'utf-8'))
+                        status = s.recv(1024)
+                        status.decode().rstrip()
+                        logger.debug(f'Recieved value: {status}; attempt {at}')
                         break
-                    except ValueError:
-                        logger.error(f'Error with v = {v}; i = {i}')
+                    except Exception as e:
+                        logger.warning(f'Exception: {e}; att {at}')
                         continue
+
+                if v == v_from or (2e-3 < v < 3e-3) or (-3e-3 < v < -2e-3):
+                    time.sleep(0.2)
+
+                a_v = 0
+                at=0
+                while at<ats:
+                    try:
+                        at += 1
+                        s.sendall(b'BIAS:DEV2:VOLT?')
+                        time.sleep(0.1)
+                        a_v = s.recv(1024)
+                        a_v.decode().rstrip()
+                        a_v = float(a_v)
+                        logger.debug(f'Recieved value: {a_v}; attempt {at}')
+                        break
+                    except Exception as e:
+                        logger.warning(f'Exception: {e}; att {at}')
+                        continue
+
+                i = 0
+                at = 0
+                while at<ats:
+                    try:
+                        at += 1
+                        s.sendall(b'BIAS:DEV2:CURR?')
+                        time.sleep(0.1)
+                        i = s.recv(1024)
+                        i.decode().rstrip()
+                        i = float(i)
+                        logger.debug(f'Recieved value: {i}; attempt {at}')
+                        break
+                    except Exception as e:
+                        logger.warning(f'Exception: {e}; att {at}')
+                        continue
+
+                delta_time = time.time()-init_time
+
                 iv['I'].append(float(i))
-                iv['V'].append(v)
-                logger.info(f"volt {v}; curr {float(i)}")
-            s.sendall(bytes(f'BIAS:DEV2:VOLT {init_v}', 'utf-8'))
+                iv['V'].append(a_v)
+                iv['V_bias'].append(v)
+                iv['time'].append(delta_time)
+
+                logger.info(f"FINISH; time {delta_time}; volt {a_v}; curr {i}")
+
+            status = ''
+            at=0
+            while at<ats:
+                try:
+                    at += 1
+                    s.sendall(bytes(f'BIAS:DEV2:VOLT {init_v}', 'utf-8'))
+                    status = s.recv(1024)
+                    status.decode().rstrip()
+                    logger.debug(f'Recieved value: {status}; attempt {at}')
+                    break
+                except Exception as e:
+                    logger.warning(f'Exception: {e}; att {at}')
+                    continue
         return iv
 
     def write_IV_csv(self, path, iv):
         with open(f'{path}', 'w') as f:
             writer = csv.writer(f)
-            writer.writerow(['I','V'])
-            for i, v in zip(iv['I'], iv['V']):
-                writer.writerow([i,v])
+            writer.writerow(['I','V', 'V_bias', 'time'])
+            for i, v, vbias, t in zip(iv['I'], iv['V'], iv['V_bias'], iv['time']):
+                writer.writerow([i, v, vbias, t])
 
     def write_refl_csv(self, path, refl):
         df = pd.DataFrame(refl)
