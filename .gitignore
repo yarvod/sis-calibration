@@ -143,3 +143,5 @@ vna_cals/test.py
 */VNA.ipynb
 
 *.DS_Store
+
+*.idea
