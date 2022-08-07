@@ -140,8 +140,11 @@ cython_debug/
 
 # vna_cals/test.ipynb
 vna_cals/test.py
+vna_cals/test_data
 */VNA.ipynb
 
 *.DS_Store
 
+*stats.sh
+*.vscode
 *.idea
