@@ -386,15 +386,16 @@ class Mixer:
         :param float V0: V bias
         :param float al: pumping level
         """
-        g = np.array(self._G(nu, nu0, V0, al, lim, mrange))
-        b = np.array(self._B(nu, nu0, V0, al, lim, mrange))
-        
         if self.Ym:
+            g = np.array(self._G(nu, nu0, V0, al, lim, mrange))
+            b = np.array(self._B(nu, nu0, V0, al, lim, mrange))
             y = g + np.eye(3,3) * self.Ym + b * 1j
             return np.linalg.inv(y)[1][1]
 
         else:
-            y = g[max(mrange)] + b[max(mrange)] * 1j
+            g = np.array(self._G(nu, nu0, V0, al, lim, [0]))
+            b = np.array(self._B(nu, nu0, V0, al, lim, [0]))
+            y = g[0][0] + b[0][0] * 1j
             return 1 / y
 
         
