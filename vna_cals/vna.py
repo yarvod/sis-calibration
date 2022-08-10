@@ -7,8 +7,7 @@ import qcodes
 from config import VNA_IP
 
 
-def get_data(param, exp_path, freq_start=3.5e9, freq_stop=8.5e9, freq_num=201, vna_power=-30, avg=None, aver=False, num=None,
-             mov_aver=False, span=None, plot=False, plot_phase=False, save=True):
+def get_data(param, exp_path, freq_start=3.5e9, freq_stop=8.5e9, freq_num=201, vna_power=-30, avg=None, plot=False, plot_phase=False, save=True):
     title = 'IF Reflection'
     plot_phase = plot_phase
     exp_path = exp_path
@@ -37,16 +36,8 @@ def get_data(param, exp_path, freq_start=3.5e9, freq_stop=8.5e9, freq_num=201, v
         vna.channels.avg(avg)
     vna.channels.autoscale()
 
-    if aver:
-        trace = av(num, vna)
-        db = 20 * np.log10(np.abs(trace))
-    if mov_aver:
-        trace = vna.channels.trace.get()[0]
-        db = 20 * np.log10(np.abs(mov_av(list(trace), span)))
-        freq = freq[span-1:]
-    else:
-        trace = vna.channels.trace.get()[0]
-        db = 20 * np.log10(np.abs(trace))
+    trace = vna.channels.trace.get()[0]
+    db = 20 * np.log10(np.abs(trace))
 
     if plot and plot_phase:
         plt.figure(figsize=(18, 6))

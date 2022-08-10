@@ -1,10 +1,14 @@
 import pandas as pd
-from utils import reim
+from vna_cals.utils import reim
+import os
+
+
+path = os.path.dirname(os.path.abspath(__file__))
 
 
 class Impedances:
 
-    PATH2DATA = 'vna_cals/impedances/'
+    PATH2DATA = path + '/data/'
 
     DESIGNS = dict((
         ('t1', 'T1.csv'),
@@ -38,10 +42,3 @@ class Impedances:
             reim=reim_data
         ))
         return data
-
-
-# example
-if __name__ == '__main__':
-    imp = Impedances('t1')
-    imp.raw_data
-    imp.data
