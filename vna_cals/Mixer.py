@@ -384,7 +384,7 @@ class Mixer:
         om = 2 * np.pi * nu
         for n in np.arange(-lim, lim + 1, 1):
             res += besselj(n, al) ** 2 * self.resp.idc((V0 + n * hbar * om / e) / self.Vgap) * self.Igap
-        return res
+        return float(res[0])
 
     def plot_Ip(self, al, nu, V=None):
         """
@@ -397,7 +397,7 @@ class Mixer:
 
         plt.figure(figsize=(10, 6))
         plt.plot(self.V * 1000, self.I * 1000, label='autonomus')
-        plt.plot(self.V * 1000, self.Ip(V, al=al, nu=nu) * 1000, label='pumped')
+        plt.plot(self.V * 1000, np.vectorize(self.Ip)(V, al=al, nu=nu) * 1000, label='pumped')
         plt.ylabel('I, mA')
         plt.xlabel('V, mV')
         plt.legend()
