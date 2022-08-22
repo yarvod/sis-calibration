@@ -1,3 +1,4 @@
+from datetime import datetime
 from collections import defaultdict
 
 import numpy as np
@@ -10,9 +11,10 @@ from qmix.mathfn.misc import slope
 from scipy.constants import e, hbar
 from scipy.optimize import curve_fit
 
-# from .logger import *
-# import logging
-# logger = logging.getLogger(__name__)
+import logging
+
+logger = logging.getLogger(__name__)
+debug = logger.debug
 
 
 class Measure:
@@ -247,14 +249,18 @@ class Mixer:
             'short': {'opt_re': [], 'cov_re': [], 'opt_im': [], 'cov_im': []},
             'load': {'opt_re': [], 'cov_re': [], 'opt_im': [], 'cov_im': []}
         }
-        nu0_range = self.freq_list[::15]
+        nu0_range = self.freq_list[::20]
         f_re = lambda x, a1, a2, a3, a4: a1 * x ** 3 + a2 * x ** 2 + a3 * x + a4
         f_im = lambda x, a1, a2, a3, a4: a1 * x ** 3 + a2 * x ** 2 + a3 * x + a4
 
+        range_time = datetime.now()
         for nu0 in nu0_range:
+            iter_time = datetime.now()
             z_open = self.Z(nu=self.LO_rate, nu0=nu0, V0=self.V_bias['open'], al=0.01)
             z_short = self.Z(nu=self.LO_rate, nu0=nu0, V0=self.V_bias['short'], al=0.01)
             z_load = self.Z(nu=self.LO_rate, nu0=nu0, V0=self.V_bias['load'], al=0.01)
+            delta = datetime.now() - iter_time
+            debug(f'Z calculation time: {delta}')
 
             res['open']['re'].append(z_open.real)
             res['open']['im'].append(z_open.imag)
@@ -262,6 +268,9 @@ class Mixer:
             res['short']['im'].append(z_short.imag)
             res['load']['re'].append(z_load.real)
             res['load']['im'].append(z_load.imag)
+
+        delta = datetime.now() - range_time
+        debug(f'Z calculation time: {delta}')
 
         for key in par.keys():
             par[key]['opt_re'], par[key]['cov_re'] = curve_fit(f_re, nu0_range, res[key]['re'])
@@ -279,6 +288,7 @@ class Mixer:
         :param float nu: FFO rate
         :param float nu0: IF rate
         """
+        start_time = datetime.now()
         om = nu * np.pi * 2
         om0 = nu0 * 2 * np.pi
         omm = lambda m: m * om + om0
@@ -298,6 +308,9 @@ class Mixer:
                                  (V0 + n * hbar * om / e - hbar * omm(m1) / e) / self.Vgap))) * self.Igap
                         )
                 g[m + d][m1 + d] *= e / (2 * hbar * om0)
+
+        delta = datetime.now() - start_time
+        debug(f'G calculation time: {delta}')
         return g
 
     def _B(self, nu, nu0, V0, al, lim=10, mrange=[0]):
@@ -305,6 +318,7 @@ class Mixer:
         :param float nu: FFO rate
         :param float nu0: IF rate
         """
+        start_time = datetime.now()
         om = nu * np.pi * 2
         om0 = nu0 * 2 * np.pi
         omm = lambda m: m * om + om0
@@ -325,28 +339,39 @@ class Mixer:
                                  (V0 + n * hbar * om / e - hbar * omm(m1) / e) / self.Vgap))) * self.Igap
                         )
                 b[m + d][m1 + d] *= e / (2 * hbar * om0)
+
+        delta = datetime.now() - start_time
+        debug(f'B calculation time: {delta}')
         return b
 
-    def Z(self, nu, nu0, V0, al, lim=10, mrange=[-1,0,1]):
+    def Z(self, nu, nu0, V0, al, lim=10, mrange=None):
         """
+        :param int lim:
+        :param list mrange:
         :param float nu: FFO rate
         :param float nu0: IF rate
         :param float V0: V bias
         :param float al: pumping level
         """
+        if mrange is None:
+            mrange = [-1, 0, 1]
+
+        start_time = datetime.now()
         if self.Ym:
             g = np.array(self._G(nu, nu0, V0, al, lim, mrange))
             b = np.array(self._B(nu, nu0, V0, al, lim, mrange))
             y = g + np.eye(3,3) * self.Ym + b * 1j
-            return np.linalg.inv(y)[1][1]
+            res = np.linalg.inv(y)[1][1]
 
         else:
             g = np.array(self._G(nu, nu0, V0, al, lim, [0]))
             b = np.array(self._B(nu, nu0, V0, al, lim, [0]))
             y = g[0][0] + b[0][0] * 1j
-            return 1 / y
+            res = 1/y
 
-        
+        delta = datetime.now() - start_time
+        debug(f'Z calculation time: {delta}')
+        return res
 
     def Ip(self, V0, al=0.2, nu=600 * 10 ** 9, lim=10):
         """
@@ -380,12 +405,13 @@ class Mixer:
         plt.show()
 
 
-def mixing(meas_table, cal_table, V_bias, LO_rate, offset=(0,0), point_num=300, rho=50):
+def mixing(meas_table, cal_table, V_bias, LO_rate, Ym=None, offset=(0,0), point_num=300, rho=50):
     mixer = Mixer(
         meas_table=meas_table,
         cal_table=cal_table,
         V_bias=V_bias,
         point_num=point_num,
+        Ym=Ym,
         offset=offset,
         LO_rate=LO_rate,
         rho=rho
