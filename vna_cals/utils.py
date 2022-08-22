@@ -1,5 +1,9 @@
+import re
+from collections import defaultdict
+
 import numpy as np
 from qmix.mathfn.misc import slope
+
 
 def reim(df, num=None):
     if not num:
@@ -52,3 +56,39 @@ def calc_offset(V, I):
     offset_i = - I[ind_0]  # for addition
     
     return offset_v, offset_i
+
+
+def carve_iv(lst):
+    v = np.array([float(it.split('\t')[0].replace(',', '.')) for it in lst])
+    i = np.array([float(it.split('\t')[1].replace(',', '.')) for it in lst])
+    return dict(V=v, I=i)
+
+
+def parse_iv(name, split):
+    lst = []
+    with open(name, 'r') as f:
+        lst = f.readlines()
+        lst = lst[split[0]: split[1]]
+
+    iv_dict = carve_iv(lst)
+
+    return iv_dict
+
+
+def parse_ivs(name):
+    splits = defaultdict(list)
+    data = dict()
+    with open(name, 'r') as f:
+
+        curve_num = 0
+        lines = f.readlines()
+        for i, line in enumerate(lines):
+            if re.search(r'#START Curve Data', line):
+                curve_num += 1
+                splits[curve_num].append(i + 1)
+            if re.search(r'#END Curve [0-9]', line):
+                splits[curve_num].append(i)
+
+        data = {num: carve_iv(lines[split[0]:split[1]]) for num, split in splits.items()}
+
+    return data
