@@ -216,7 +216,7 @@ class Mixer:
 
     @property
     def In(self):
-        return self.I / self.Igap
+        return self.I / (self.Igap * 2)
 
     @property
     def Igap(self):
@@ -305,7 +305,7 @@ class Mixer:
                             ((self.resp.idc((V0 + n1 * hbar * om / e + hbar * omm(m1) / e) / self.Vgap) - self.resp.idc(
                                 (V0 + n1 * hbar * om / e) / self.Vgap)) +
                              (self.resp.idc((V0 + n * hbar * om / e) / self.Vgap) - self.resp.idc(
-                                 (V0 + n * hbar * om / e - hbar * omm(m1) / e) / self.Vgap))) * self.Igap
+                                 (V0 + n * hbar * om / e - hbar * omm(m1) / e) / self.Vgap))) * self.Igap * 2
                         )
                 g[m + d][m1 + d] *= e / (2 * hbar * om0)
 
@@ -336,7 +336,7 @@ class Mixer:
                             ((self.resp.idc((V0 + n1 * hbar * om / e + hbar * omm(m1) / e) / self.Vgap) - self.resp.idc(
                                 (V0 + n1 * hbar * om / e) / self.Vgap)) - \
                              (self.resp.idc((V0 + n * hbar * om / e) / self.Vgap) - self.resp.idc(
-                                 (V0 + n * hbar * om / e - hbar * omm(m1) / e) / self.Vgap))) * self.Igap
+                                 (V0 + n * hbar * om / e - hbar * omm(m1) / e) / self.Vgap))) * self.Igap * 2
                         )
                 b[m + d][m1 + d] *= e / (2 * hbar * om0)
 
@@ -383,7 +383,7 @@ class Mixer:
         res = 0
         om = 2 * np.pi * nu
         for n in np.arange(-lim, lim + 1, 1):
-            res += besselj(n, al) ** 2 * self.resp.idc((V0 + n * hbar * om / e) / self.Vgap) * self.Igap
+            res += besselj(n, al) ** 2 * self.resp.idc((V0 + n * hbar * om / e) / self.Vgap) * self.Igap * 2
         return float(res[0])
 
     def plot_Ip(self, al, nu, V=None):
