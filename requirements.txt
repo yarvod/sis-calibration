@@ -4,8 +4,12 @@ pandas~=1.3.4
 qcodes~=0.29.1
 pyvisa-py
 PyInstaller
+<<<<<<< Updated upstream
 setuptools~=56.0.0
 future~=0.18.2
 mpmath~=1.2.1
 QMix~=1.0.5
 scipy~=1.8.0
+=======
+nidaqmx
+>>>>>>> Stashed changes
