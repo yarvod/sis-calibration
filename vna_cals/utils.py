@@ -31,30 +31,36 @@ def moving_average(a, n=3):
 
 
 def power_aver(vec, n):
-    return 10*np.log10(moving_average((np.abs(vec))**2, n))
+    return 10 * np.log10(moving_average((np.abs(vec)) ** 2, n))
 
 
 def calc_offset(V, I):
     I = np.array(list(I))
     V = np.array(list(V))
-    
+
     slp = slope(V, I)
-    
-    ind_v_pos = np.where(V>0.002)
-    ind_v_neg = np.where(V<-0.002)
-    
-    ind_max_right = np.where(slp==np.max(slp[ind_v_pos]))
-    ind_max_left = np.where(slp==np.max(slp[ind_v_neg]))
-    
+    nans_inds = np.isnan(slp)
+    infinit_inds = ~np.isfinite(slp)
+    bad_inds = nans_inds & infinit_inds
+    I = I[~bad_inds]
+    V = V[~bad_inds]
+    slp = slp[~bad_inds]
+
+    ind_v_pos = np.where(((V > 0.002) & (V < 0.04)))
+    ind_v_neg = np.where(((V > -0.004) & (V < -0.002)))
+
+    ind_max_right = np.where(slp == np.max(slp[ind_v_pos]))
+    ind_max_left = np.where(slp == np.max(slp[ind_v_neg]))
+
     aver = (V[ind_max_right] - V[ind_max_left]) / 2
-    
+
     offset_v = aver - V[ind_max_right]  # for addition
-    
+
     V = V + offset_v
     v_nearest2zero = min(abs(V))
-    ind_0 = np.where((V==v_nearest2zero)|(V==-v_nearest2zero))
+    ind_0 = np.where((V == v_nearest2zero) | (V == -v_nearest2zero))
     offset_i = - I[ind_0]  # for addition
-    
+
     return offset_v, offset_i
 
 
