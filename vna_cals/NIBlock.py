@@ -17,34 +17,41 @@ class NIBlock:
 
         with ni.Task() as rtask, ni.Task() as wtask:
 
-            rtask.ai_channels.add_ai_voltage_chan(self.volt_input_chan)
             rtask.ai_channels.add_ai_current_chan(self.curr_input_chan)
             wtask.ao_channels.add_ao_voltage_chan(self.volt_output_chan)
 
             wtask.write(volt)
+            curr = rtask.read(number_of_samples_per_channel=157)
+            
+            return np.mean(curr)
 
-            data = rtask.read()
-            data[1] *= 2
-            wtask.write(0)
-            return data
-
-    def get_volt_curr(self):
+    def get_volt(self):
 
         with ni.Task() as rtask:
 
             rtask.ai_channels.add_ai_voltage_chan(self.volt_input_chan)
+
+            data = rtask.read(number_of_samples_per_channel=157)
+            return np.mean(data)
+
+    def get_curr(self):
+
+        with ni.Task() as rtask:
+
             rtask.ai_channels.add_ai_current_chan(self.curr_input_chan)
 
-            data = rtask.read()
-            data[1] *= 2
-            return data
+            data = rtask.read(number_of_samples_per_channel=157)
+            return np.mean(data)
 
     def measure_iv(self, volt_range: list):
-        iv = defaultdict(list)
+    
         for volt in volt_range:
-            v, i = self.set_volt(volt)
+            i = self.set_volt(volt)
+            v = self.get_volt()
             self.iv['I'].append(i)
             self.iv['V'].append(v)
+            self.iv['V_set'].append(volt)
+        return self.iv
 
     def plot_iv(self, iv=None):
         if not iv:
