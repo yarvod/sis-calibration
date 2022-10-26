@@ -2,6 +2,7 @@ import nidaqmx as ni
 from collections import defaultdict
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.optimize import curve_fit
 
 
 class NIBlock:
@@ -62,6 +63,30 @@ class NIBlock:
         plt.ylabel('current, mkA')
         plt.grid()
         plt.show()
+
+
+class NIContainer:
+
+    PARAMS = [2.10505744, 0.01640703]
+
+    def __init__(self):
+        self.params = self.PARAMS
+        self.volt_range = []
+        self.iv = []
+
+    @property
+    def block(self):
+        return NIBlock()
+
+    def update_params(self):
+        self.measure_iv(np.linspace(0, 1, 500))
+        lin = lambda x, a, b: a*x + b
+        opt, cov = curve_fit(lin, self.volt_range, self.iv['V'])
+        self.params = opt
+
+    def measure_iv(self, volt_range):
+        self.volt_range = volt_range
+        self.iv = self.block.measure_iv(volt_range=self.volt_range)
 
         
 if __name__ == '__main__':
