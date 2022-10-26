@@ -83,16 +83,20 @@ class NIContainer:
         lin = lambda x, a, b: a*x + b
         opt, cov = curve_fit(lin, self.volt_range, self.iv['V'])
         self.params = opt
+        self.block.set_volt(0)
 
     def measure_iv(self, volt_range):
         self.volt_range = volt_range
         self.iv = self.block.measure_iv(volt_range=self.volt_range)
 
+    def plot_iv(self):
+        self.block.plot_iv(self.iv)
+
         
 if __name__ == '__main__':
-    volt_range = np.linspace(0, 3, 10)
-    block = NIBlock()
-
-    block.measure_iv(volt_range)
-    block.plot_iv()
+    volt_range = np.linspace(0, 3, 500)
+    container = NIContainer()
+    container.update_params()
+    container.measure_iv(volt_range)
+    container.plot_iv()
     
