@@ -78,6 +78,12 @@ class NIContainer:
     def block(self):
         return NIBlock()
 
+    def set_zero(self):
+        self.block.set_volt(0)
+        delta = self.block.get_volt()
+        self.block.set_volt(-delta/self.params[0])
+
+
     def update_params(self):
         self.measure_iv(np.linspace(0, 1, 500))
         lin = lambda x, a, b: a*x + b
@@ -86,15 +92,18 @@ class NIContainer:
         self.block.set_volt(0)
 
     def measure_iv(self, volt_range):
+        initial = self.block.get_volt()
+        self.set_zero()
         self.volt_range = volt_range
         self.iv = self.block.measure_iv(volt_range=self.volt_range)
+        self.block.set_volt(initial / self.params[0] - self.params[1])
 
     def plot_iv(self):
         self.block.plot_iv(self.iv)
 
         
 if __name__ == '__main__':
-    volt_range = np.linspace(0, 3, 500)
+    volt_range = np.linspace(-3, 3, 500)
     container = NIContainer()
     container.update_params()
     container.measure_iv(volt_range)
