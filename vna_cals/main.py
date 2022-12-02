@@ -5,11 +5,14 @@ from tkinter.ttk import Notebook, Combobox
 from vna import get_data, save_data
 from Mixer import Mixer
 from scpi import Block
+from NIBlock import NIContainer
+import numpy as np
 
 
 class Base:
 
     block = Block()
+    niblock = NIContainer()
     # mixer = Mixer()
 
     # SetUp
@@ -63,6 +66,16 @@ class Base:
         if save:
             path = filedialog.asksaveasfilename(defaultextension=".csv")
             self.block.write_IV_csv(path=path, iv=iv)
+
+    def meas_iv_new(self, plot=True, save=False):
+        volt_range = np.linspace(float(self.volt_start.get()), float(self.volt_stop.get()), int(self.iv_point_num.get()))
+        self.niblock.update_params()
+        self.niblock.measure_iv(volt_range)
+        if plot:
+            self.niblock.plot_iv()
+        if save:
+            path = filedialog.asksaveasfilename(defaultextension=".csv")
+            self.niblock.write_IV_csv(path=path)
 
     def calc_offset(self):
         pass
@@ -246,7 +259,7 @@ class UI(Frame, Base):
         Label(iv_frame, text='stop volt:').grid(row=0, column=4, padx=5, pady=5)
         Entry(iv_frame, textvariable=self.volt_stop).grid(row=0, column=5, padx=5, pady=5)
 
-        Button(iv_frame, text='Measure curve', command=lambda: self.meas_iv(save=True)) \
+        Button(iv_frame, text='Measure curve', command=lambda: self.meas_iv_new(save=True)) \
             .grid(row=1, column=0, padx=5, pady=5)
 
         Button(iv_frame, text='Measure refl', command=lambda: self.measure_reflection()) \

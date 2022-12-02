@@ -3,6 +3,7 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.optimize import curve_fit
+import csv
 
 
 class NIBlock:
@@ -22,7 +23,7 @@ class NIBlock:
             wtask.ao_channels.add_ao_voltage_chan(self.volt_output_chan)
 
             wtask.write(volt)
-            curr = rtask.read(number_of_samples_per_channel=157)
+            curr = rtask.read(number_of_samples_per_channel=1157)
             
             return np.mean(curr)
 
@@ -32,7 +33,7 @@ class NIBlock:
 
             rtask.ai_channels.add_ai_voltage_chan(self.volt_input_chan)
 
-            data = rtask.read(number_of_samples_per_channel=157)
+            data = rtask.read(number_of_samples_per_channel=1157)
             return np.mean(data)
 
     def get_curr(self):
@@ -41,7 +42,7 @@ class NIBlock:
 
             rtask.ai_channels.add_ai_current_chan(self.curr_input_chan)
 
-            data = rtask.read(number_of_samples_per_channel=157)
+            data = rtask.read(number_of_samples_per_channel=1157)
             return np.mean(data)
 
     def measure_iv(self, volt_range: list):
@@ -101,11 +102,18 @@ class NIContainer:
     def plot_iv(self):
         self.block.plot_iv(self.iv)
 
+    def write_IV_csv(self, path):
+        with open(f'{path}', 'w') as f:
+            writer = csv.writer(f)
+            writer.writerow(['I','V', 'V_set'])
+            for i, v, vbias in zip(self.iv['I'], self.iv['V'], self.iv['V_set']):
+                writer.writerow([i, v, vbias])
+
         
 if __name__ == '__main__':
-    volt_range = np.linspace(-3, 3, 500)
+    volt_range = np.linspace(1, 1.7, 500)
     container = NIContainer()
-    container.update_params()
+    # container.update_params()
     container.measure_iv(volt_range)
     container.plot_iv()
     
