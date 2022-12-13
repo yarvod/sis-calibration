@@ -1,6 +1,7 @@
 from tkinter import *
 from tkinter import filedialog
-from tkinter.ttk import Notebook, Combobox
+import ttkbootstrap as ttk
+from ttkbootstrap.constants import *
 
 from vna import get_data, save_data
 from Mixer import Mixer
@@ -91,7 +92,7 @@ class Base:
             self.block.write_refl_csv(path=path, refl=refl)
 
 
-class UI(Frame, Base):
+class UI(ttk.Frame, Base):
 
     def __init__(self, isapp=True, name='ui'):
         Frame.__init__(self, name=name)
@@ -106,11 +107,11 @@ class UI(Frame, Base):
         self._create_demo_panel()
 
     def _create_demo_panel(self):
-        demoPanel = Frame(self, name='demo')
+        demoPanel = ttk.Frame(self, name='demo')
         demoPanel.pack(side=TOP, fill=BOTH, expand=Y)
 
         # create the notebook
-        nb = Notebook(demoPanel, name='notebook')
+        nb = ttk.Notebook(demoPanel, name='notebook')
 
         nb.enable_traversal()
 
@@ -121,16 +122,16 @@ class UI(Frame, Base):
         self._create_ivcurve_tab(nb)
 
     def _create_setup_tab(self, nb):
-        frame = Frame(nb, name='setup')
+        frame = ttk.Frame(nb, name='setup')
         # widgets to be displayed on 'Description' tab
 
         self.exp_path = StringVar()
 
-        Label(frame, text='Experiment path:', font=('bold', '14'))\
+        ttk.Label(frame, text='Experiment path:', font=('bold', '14'))\
             .grid(row=0, column=0, padx=5, pady=5, sticky='W')
-        Label(frame, textvariable=self.exp_path)\
+        ttk.Label(frame, textvariable=self.exp_path)\
             .grid(row=0, column=1, padx=5, pady=5, sticky='W')
-        Button(frame, text='Browse', command=self.browse_button)\
+        ttk.Button(frame, text='Browse', command=self.browse_button)\
             .grid(row=0, column=2, padx=5, pady=5, sticky='W')
 
         # position and set resize behaviour
@@ -141,88 +142,88 @@ class UI(Frame, Base):
         nb.add(frame, text='SetUp', underline=0, padding=2)
 
     def _create_vna_tab(self, nb):
-        frame = Frame(nb, name='vna')
+        frame = ttk.Frame(nb, name='vna')
 
-        Label(frame, text='S-Parameter:').grid(row=0, column=0, padx=5, pady=5)
+        ttk.Label(frame, text='S-Parameter:').grid(row=0, column=0, padx=5, pady=5)
 
-        self.s_param = Combobox(frame)
+        self.s_param = ttk.Combobox(frame)
         self.s_param['values'] = ('S11', 'S12', 'S21', 'S22')
         self.s_param.current(2)
         self.s_param.grid(row=0, column=1, padx=5, pady=5)
 
         self.point_num = StringVar()
-        Label(frame, text='Point num:').grid(row=1, column=0, padx=5, pady=5)
-        Entry(frame, textvariable=self.point_num).grid(row=1, column=1, padx=5, pady=5)
+        ttk.Label(frame, text='Point num:').grid(row=1, column=0, padx=5, pady=5)
+        ttk.Entry(frame, textvariable=self.point_num).grid(row=1, column=1, padx=5, pady=5)
 
         self.freq_start = StringVar()
-        Label(frame, text='start freq:').grid(row=2, column=0, padx=5, pady=5)
-        Entry(frame, textvariable=self.freq_start).grid(row=2, column=1, padx=5, pady=5)
+        ttk.Label(frame, text='start freq:').grid(row=2, column=0, padx=5, pady=5)
+        ttk.Entry(frame, textvariable=self.freq_start).grid(row=2, column=1, padx=5, pady=5)
 
         self.freq_stop = StringVar()
-        Label(frame, text='stop freq:').grid(row=3, column=0, padx=5, pady=5)
-        Entry(frame, textvariable=self.freq_stop).grid(row=3, column=1, padx=5, pady=5)
+        ttk.Label(frame, text='stop freq:').grid(row=3, column=0, padx=5, pady=5)
+        ttk.Entry(frame, textvariable=self.freq_stop).grid(row=3, column=1, padx=5, pady=5)
 
         self.vna_avg = IntVar()
         self.vna_avg.set(1)
-        Label(frame, text='avg:').grid(row=4, column=0, padx=5, pady=5)
-        Entry(frame, textvariable=self.vna_avg).grid(row=4, column=1, padx=5, pady=5)
+        ttk.Label(frame, text='avg:').grid(row=4, column=0, padx=5, pady=5)
+        ttk.Entry(frame, textvariable=self.vna_avg).grid(row=4, column=1, padx=5, pady=5)
 
-        Button(frame, text='Show', command=self.show_data).grid(row=5, column=0, padx=5, pady=5)
-        Button(frame, text='Show&Save', command=lambda: self.show_data(True)).grid(row=5, column=1, padx=5, pady=5)
+        ttk.Button(frame, text='Show', command=self.show_data).grid(row=5, column=0, padx=5, pady=5)
+        ttk.Button(frame, text='Show&Save', command=lambda: self.show_data(True)).grid(row=5, column=1, padx=5, pady=5)
         self.plot_phase = BooleanVar()
-        Checkbutton(frame, text='Plot phase', var=self.plot_phase).grid(row=5, column=2, padx=5, pady=5)
+        ttk.Checkbutton(frame, text='Plot phase', var=self.plot_phase).grid(row=5, column=2, padx=5, pady=5)
 
         # add to notebook (underline = index for short-cut character)
         nb.add(frame, text='VNA', underline=0, padding=2)
 
     def _create_calibration_tab(self, nb):
-        frame = Frame(nb, name='calibrations')
+        frame = ttk.Frame(nb, name='calibrations')
 
-        Label(frame, text='Open cal:') \
+        ttk.Label(frame, text='Open cal:') \
             .grid(row=0, column=0)
 
         self.open_path = StringVar()
         self.open_path_rel = StringVar()
 
-        Label(frame, textvariable=self.open_path_rel) \
+        ttk.Label(frame, textvariable=self.open_path_rel) \
             .grid(row=0, column=1)
-        Button(frame, text='Attach', command=lambda: self.attach_file('open')) \
+        ttk.Button(frame, text='Attach', command=lambda: self.attach_file('open')) \
             .grid(row=0, column=2)
         self.V_bias_open = StringVar()
-        Entry(frame, textvariable=self.V_bias_open) \
+        ttk.Entry(frame, textvariable=self.V_bias_open) \
             .grid(row=0, column=3)
 
-        Label(frame, text='Short cal:') \
+        ttk.Label(frame, text='Short cal:') \
             .grid(row=1, column=0)
         self.short_path = StringVar()
         self.short_path_rel = StringVar()
-        Label(frame, textvariable=self.short_path_rel) \
+        ttk.Label(frame, textvariable=self.short_path_rel) \
             .grid(row=1, column=1)
-        Button(frame, text='Attach', command=lambda: self.attach_file('short')) \
+        ttk.Button(frame, text='Attach', command=lambda: self.attach_file('short')) \
             .grid(row=1, column=2)
         self.V_bias_short = StringVar()
-        Entry(frame, textvariable=self.V_bias_short) \
+        ttk.Entry(frame, textvariable=self.V_bias_short) \
             .grid(row=1, column=3)
 
-        Label(frame, text='Load cal:') \
+        ttk.Label(frame, text='Load cal:') \
             .grid(row=2, column=0)
         self.load_path = StringVar()
         self.load_path_rel = StringVar()
-        Label(frame, textvariable=self.load_path_rel) \
+        ttk.Label(frame, textvariable=self.load_path_rel) \
             .grid(row=2, column=1)
-        Button(frame, text='Attach', command=lambda: self.attach_file('load')) \
+        ttk.Button(frame, text='Attach', command=lambda: self.attach_file('load')) \
             .grid(row=2, column=2)
         self.V_bias_load = StringVar()
-        Entry(frame, textvariable=self.V_bias_load) \
+        ttk.Entry(frame, textvariable=self.V_bias_load) \
             .grid(row=2, column=3)
 
-        Label(frame, text='I-V curve:') \
+        ttk.Label(frame, text='I-V curve:') \
             .grid(row=3, column=0)
         self.IV_curve_path = StringVar()
         self.IV_curve_path_rel = StringVar()
-        Label(frame, textvariable=self.IV_curve_path_rel) \
+        ttk.Label(frame, textvariable=self.IV_curve_path_rel) \
             .grid(row=3, column=1)
-        Button(frame, text='Attach', command=lambda: self.attach_file('IV')) \
+        ttk.Button(frame, text='Attach', command=lambda: self.attach_file('IV')) \
             .grid(row=3, column=2)
 
         # Label(frame, text='Attach measure:') \
@@ -242,33 +243,33 @@ class UI(Frame, Base):
         nb.add(frame, text='Calibration', underline=0, padding=2)
 
     def _create_ivcurve_tab(self, nb):
-        frame = Frame(nb, name='i-v curve')
+        frame = ttk.Frame(nb, name='i-v curve')
 
-        iv_frame = Frame(frame)
+        iv_frame = ttk.Frame(frame)
         iv_frame.pack()
 
         self.iv_point_num = StringVar()
-        Label(iv_frame, text='Point num:').grid(row=0, column=0, padx=5, pady=5)
-        Entry(iv_frame, textvariable=self.iv_point_num).grid(row=0, column=1, padx=5, pady=5)
+        ttk.Label(iv_frame, text='Point num:').grid(row=0, column=0, padx=5, pady=5)
+        ttk.Entry(iv_frame, textvariable=self.iv_point_num).grid(row=0, column=1, padx=5, pady=5)
 
         self.volt_start = StringVar()
-        Label(iv_frame, text='start volt:').grid(row=0, column=2, padx=5, pady=5)
-        Entry(iv_frame, textvariable=self.volt_start).grid(row=0, column=3, padx=5, pady=5)
+        ttk.Label(iv_frame, text='start volt:').grid(row=0, column=2, padx=5, pady=5)
+        ttk.Entry(iv_frame, textvariable=self.volt_start).grid(row=0, column=3, padx=5, pady=5)
 
         self.volt_stop = StringVar()
-        Label(iv_frame, text='stop volt:').grid(row=0, column=4, padx=5, pady=5)
-        Entry(iv_frame, textvariable=self.volt_stop).grid(row=0, column=5, padx=5, pady=5)
+        ttk.Label(iv_frame, text='stop volt:').grid(row=0, column=4, padx=5, pady=5)
+        ttk.Entry(iv_frame, textvariable=self.volt_stop).grid(row=0, column=5, padx=5, pady=5)
 
-        Button(iv_frame, text='Measure curve', command=lambda: self.meas_iv_new(save=True)) \
+        ttk.Button(iv_frame, text='Measure curve', command=lambda: self.meas_iv_new(save=True)) \
             .grid(row=1, column=0, padx=5, pady=5)
 
-        Button(iv_frame, text='Measure refl', command=lambda: self.measure_reflection()) \
+        ttk.Button(iv_frame, text='Measure refl', command=lambda: self.measure_reflection()) \
             .grid(row=1, column=1, padx=5, pady=5)
 
         self.use_offset = BooleanVar()
-        Checkbutton(iv_frame, text='Use offset', var=self.use_offset).grid(row=2, column=0, padx=5, pady=5)
+        ttk.Checkbutton(iv_frame, text='Use offset', var=self.use_offset).grid(row=2, column=0, padx=5, pady=5)
 
-        Button(iv_frame, text='Calculate offset', command=lambda: self.calc_offset()) \
+        ttk.Button(iv_frame, text='Calculate offset', command=lambda: self.calc_offset()) \
             .grid(row=2, column=1, padx=5, pady=5)
 
         nb.add(frame, text='I-V curve', underline=0, padding=2)
