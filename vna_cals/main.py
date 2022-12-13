@@ -1,7 +1,7 @@
-from tkinter import *
-from tkinter import filedialog
+from tkinter import filedialog, StringVar, BooleanVar, IntVar
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import *
+from ttkbootstrap.scrolled import ScrolledFrame
 
 from vna import get_data, save_data
 from Mixer import Mixer
@@ -95,7 +95,7 @@ class Base:
 class UI(ttk.Frame, Base):
 
     def __init__(self, isapp=True, name='ui'):
-        Frame.__init__(self, name=name)
+        ttk.Frame.__init__(self, name=name)
         Base.__init__(self)
         self.pack(expand=Y, fill=BOTH)
 
@@ -111,7 +111,7 @@ class UI(ttk.Frame, Base):
         demoPanel.pack(side=TOP, fill=BOTH, expand=Y)
 
         # create the notebook
-        nb = ttk.Notebook(demoPanel, name='notebook')
+        nb = ttk.Notebook(demoPanel, name='notebook', bootstyle="info")
 
         nb.enable_traversal()
 
