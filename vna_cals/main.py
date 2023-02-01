@@ -26,7 +26,7 @@ class Base:
         start = float(self.freq_start.get())
         stop = float(self.freq_stop.get())
         get_data(param=self.s_param.get(),
-                 vna_ip=self.vna_ip,
+                 vna_ip=self.vna_ip.get(),
                  plot=plot,
                  plot_phase=self.plot_phase.get(),
                  freq_start=start, freq_stop=stop,
@@ -69,10 +69,11 @@ class Base:
             path = filedialog.asksaveasfilename(defaultextension=".csv")
             self.block.write_IV_csv(path=path, iv=iv)
 
-    def meas_iv_new(self, plot=True, save=False):
+    def meas_iv_new(self, plot=False, save=False):
         volt_range = np.linspace(
             float(self.volt_start.get()), float(self.volt_stop.get()), int(self.iv_point_num.get())
         )
+        self.niblock.update_params
         self.niblock.measure_iv(volt_range)
         if plot:
             self.niblock.plot_iv()
@@ -84,16 +85,21 @@ class Base:
         pass
 
     def measure_reflection(self, save=True):
-        self.block.measure_reflection(
-            v_from=float(self.volt_start.get()), v_to=float(self.volt_stop.get()), v_points=int(self.iv_point_num.get()),
-            f_from=float(self.freq_start.get()), f_to=float(self.freq_stop.get()), f_points=int(self.point_num.get()),
-            s_par=self.s_param.get(), exp_path=self.exp_path.get(), avg=self.vna_avg.get(), vna_ip=self.vna_ip,
+        volt_range = np.linspace(
+            float(self.volt_start.get()), float(self.volt_stop.get()), int(self.iv_point_num.get())
         )
+        self.niblock.measure_reflection(
+            volt_range=volt_range,
+            f_from=float(self.freq_start.get()), f_to=float(self.freq_stop.get()), f_points=int(self.point_num.get()),
+            s_par=self.s_param.get(), exp_path=self.exp_path.get(), avg=self.vna_avg.get(), vna_ip=self.vna_ip.get(),
+        )
+        self.niblock.plot_iv()
         if save:
             path_refl = filedialog.asksaveasfilename(defaultextension=".csv")
-            self.block.write_refl_csv(path=path_refl)
+            self.niblock.write_refl_csv(path=path_refl)
             path_iv = filedialog.asksaveasfilename(defaultextension=".csv")
             self.niblock.write_IV_csv(path=path_iv)
+        
 
 
 class UI(ttk.Frame, Base):
@@ -102,6 +108,7 @@ class UI(ttk.Frame, Base):
         ttk.Frame.__init__(self, name=name)
         Base.__init__(self)
         self.pack(expand=Y, fill=BOTH)
+        self.vna_ip = '10.208.234.8'
 
         self.master.title('UI')
         self.isapp = isapp
@@ -130,7 +137,7 @@ class UI(ttk.Frame, Base):
         # widgets to be displayed on 'Description' tab
 
         self.exp_path = StringVar()
-        self.vna_ip = StringVar(value='192.168.1.33')
+        self.vna_ip = StringVar(value='10.208.234.8')
         self.block_ip = StringVar(value='192.168.1.34')
 
         ttk.Label(frame, text='Experiment path:', font=('bold', '14'))\
@@ -281,6 +288,12 @@ class UI(ttk.Frame, Base):
 
         ttk.Button(iv_frame, text='Calculate offset', command=lambda: self.calc_offset()) \
             .grid(row=2, column=1, padx=5, pady=5)
+        
+        ttk.Button(iv_frame, text='set 0', command=lambda: self.niblock.set_zero()) \
+            .grid(row=3, column=0, padx=5, pady=5)
+
+        ttk.Button(iv_frame, text='update params', command=lambda: self.niblock.update_params()) \
+            .grid(row=3, column=1, padx=5, pady=5)
 
         nb.add(frame, text='I-V curve', underline=0, padding=2)
 
