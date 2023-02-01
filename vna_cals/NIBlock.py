@@ -13,7 +13,9 @@ class NIBlock:
 
     curr_input_chan = "Dev1/ai3"
     volt_input_chan = "Dev1/ai4"
+    mag_curr_input_chan = "Dev1/ai5"
     volt_output_chan = "Dev1/ao2"
+    mag_curr_output_chan = "Dev1/ao3"
 
     def __init__(self) -> None:
         self.iv = defaultdict(list)
@@ -30,6 +32,22 @@ class NIBlock:
             curr = rtask.read(number_of_samples_per_channel=1157)
             
             return np.mean(curr)
+
+    def set_mag_curr(self, curr: float):
+
+        with ni.Task() as rtask, ni.Task() as wtask:
+
+            wtask.ao_channels.add_ao_current_chan(self.mag_curr_output_chan)
+            wtask.write(curr)
+
+    def get_mag_curr(self):
+
+        with ni.Task() as rtask:
+
+            rtask.ai_channels.add_ai_current_chan(self.mag_curr_input_chan)
+
+            data = rtask.read(number_of_samples_per_channel=1157)
+            return np.mean(data)
 
     def get_volt(self):
 
