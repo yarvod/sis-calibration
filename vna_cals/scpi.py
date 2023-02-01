@@ -152,7 +152,7 @@ class Block:
         iv1 = self.measure_IV(v_from=0, v_to=7e-3, points=300)
         iv2 = self.measure_IV(v_from=7e-3, v_to=0, points=300)
 
-    def measure_reflection(self, v_from: float, v_to: float, v_points: int,
+    def measure_reflection(self, v_from: float, v_to: float, v_points: int, vna_ip: str,
                            f_from: float, f_to: float, f_points: int, s_par, exp_path, avg: int):
         refl = defaultdict(list)
         ats = 10
@@ -231,6 +231,7 @@ class Block:
                         at += 1
                         res = get_data(
                             param=s_par,
+                            vna_ip=vna_ip,
                             plot=False,
                             plot_phase=False,
                             freq_start=f_from, freq_stop=f_to,

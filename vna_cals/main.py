@@ -26,6 +26,7 @@ class Base:
         start = float(self.freq_start.get())
         stop = float(self.freq_stop.get())
         get_data(param=self.s_param.get(),
+                 vna_ip=self.vna_ip,
                  plot=plot,
                  plot_phase=self.plot_phase.get(),
                  freq_start=start, freq_stop=stop,
@@ -69,8 +70,9 @@ class Base:
             self.block.write_IV_csv(path=path, iv=iv)
 
     def meas_iv_new(self, plot=True, save=False):
-        volt_range = np.linspace(float(self.volt_start.get()), float(self.volt_stop.get()), int(self.iv_point_num.get()))
-        self.niblock.update_params()
+        volt_range = np.linspace(
+            float(self.volt_start.get()), float(self.volt_stop.get()), int(self.iv_point_num.get())
+        )
         self.niblock.measure_iv(volt_range)
         if plot:
             self.niblock.plot_iv()
@@ -82,14 +84,16 @@ class Base:
         pass
 
     def measure_reflection(self, save=True):
-        refl = self.block.measure_reflection(
+        self.block.measure_reflection(
             v_from=float(self.volt_start.get()), v_to=float(self.volt_stop.get()), v_points=int(self.iv_point_num.get()),
             f_from=float(self.freq_start.get()), f_to=float(self.freq_stop.get()), f_points=int(self.point_num.get()),
-            s_par=self.s_param.get(), exp_path=self.exp_path.get(), avg=self.vna_avg.get()
+            s_par=self.s_param.get(), exp_path=self.exp_path.get(), avg=self.vna_avg.get(), vna_ip=self.vna_ip,
         )
         if save:
-            path = filedialog.asksaveasfilename(defaultextension=".csv")
-            self.block.write_refl_csv(path=path, refl=refl)
+            path_refl = filedialog.asksaveasfilename(defaultextension=".csv")
+            self.block.write_refl_csv(path=path_refl)
+            path_iv = filedialog.asksaveasfilename(defaultextension=".csv")
+            self.niblock.write_IV_csv(path=path_iv)
 
 
 class UI(ttk.Frame, Base):
@@ -126,6 +130,8 @@ class UI(ttk.Frame, Base):
         # widgets to be displayed on 'Description' tab
 
         self.exp_path = StringVar()
+        self.vna_ip = StringVar(value='192.168.1.33')
+        self.block_ip = StringVar(value='192.168.1.34')
 
         ttk.Label(frame, text='Experiment path:', font=('bold', '14'))\
             .grid(row=0, column=0, padx=5, pady=5, sticky='W')
@@ -133,6 +139,10 @@ class UI(ttk.Frame, Base):
             .grid(row=0, column=1, padx=5, pady=5, sticky='W')
         ttk.Button(frame, text='Browse', command=self.browse_button)\
             .grid(row=0, column=2, padx=5, pady=5, sticky='W')
+        ttk.Label(frame, text='VNA IP:')\
+            .grid(row=1, column=0, padx=5, pady=5, sticky='W')
+        ttk.Entry(frame, textvariable=self.vna_ip)\
+            .grid(row=1, column=1, padx=5, pady=5, sticky='W')
 
         # position and set resize behaviour
         frame.rowconfigure(1, weight=1)

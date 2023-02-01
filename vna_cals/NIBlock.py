@@ -2,8 +2,11 @@ import nidaqmx as ni
 from collections import defaultdict
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from scipy.optimize import curve_fit
 import csv
+
+from vna import get_data
 
 
 class NIBlock:
@@ -14,6 +17,7 @@ class NIBlock:
 
     def __init__(self) -> None:
         self.iv = defaultdict(list)
+        self.refl = defaultdict(list)
 
     def set_volt(self, volt: float):
 
@@ -55,6 +59,39 @@ class NIBlock:
             self.iv['V_set'].append(volt)
         return self.iv
 
+    def measure_reflection(
+            self,
+            volt_range,
+            f_from,
+            f_to,
+            f_points,
+            s_par,
+            exp_path,
+            avg,
+            vna_ip,
+    ):
+        self.refl = defaultdict(list)
+        for volt in volt_range:
+            i = self.set_volt(volt)
+            v = self.get_volt()
+            self.iv['I'].append(i)
+            self.iv['V'].append(v)
+            self.iv['V_set'].append(volt)
+            res = get_data(
+                param=s_par,
+                vna_ip=vna_ip,
+                plot=False,
+                plot_phase=False,
+                freq_start=f_from, freq_stop=f_to,
+                exp_path=exp_path,
+                freq_num=f_points or 201,
+                avg=int(avg)
+            )
+            self.refl[f"{v};{i}"] = res['trace']
+            self.refl['freq'] = res['freq']
+
+        return self.iv, self.refl
+
     def plot_iv(self, iv=None):
         if not iv:
             iv = self.iv
@@ -73,7 +110,8 @@ class NIContainer:
     def __init__(self):
         self.params = self.PARAMS
         self.volt_range = []
-        self.iv = []
+        self.iv = defaultdict(list)
+        self.refl = defaultdict(list)
 
     @property
     def block(self):
@@ -83,7 +121,6 @@ class NIContainer:
         self.block.set_volt(0)
         delta = self.block.get_volt()
         self.block.set_volt(-delta/self.params[0])
-
 
     def update_params(self):
         self.measure_iv(np.linspace(0, 1, 500))
@@ -108,6 +145,36 @@ class NIContainer:
             writer.writerow(['I','V', 'V_set'])
             for i, v, vbias in zip(self.iv['I'], self.iv['V'], self.iv['V_set']):
                 writer.writerow([i, v, vbias])
+
+    def measure_reflection(
+            self,
+            volt_range,
+            f_from,
+            f_to,
+            f_points,
+            s_par,
+            exp_path,
+            avg,
+            vna_ip,
+    ):
+        initial = self.block.get_volt()
+        self.set_zero()
+        self.volt_range = volt_range
+        self.iv, self.refl = self.block.measure_reflection(
+            volt_range,
+            f_from,
+            f_to,
+            f_points,
+            s_par,
+            exp_path,
+            avg,
+            vna_ip,
+        )
+        self.block.set_volt(initial / self.params[0] - self.params[1])
+
+    def write_refl_csv(self, path):
+        df = pd.DataFrame(self.refl)
+        df.to_csv(path, index=False)
 
         
 if __name__ == '__main__':
