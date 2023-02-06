@@ -5,8 +5,10 @@ import numpy as np
 import pandas as pd
 from scipy.optimize import curve_fit
 import csv
+import time
 
 from vna import get_data
+from logger import logger
 
 
 class NIBlock:
@@ -68,14 +70,13 @@ class NIBlock:
             return np.mean(data)
 
     def measure_iv(self, volt_range: list):
-        plt.ion()
         for volt in volt_range:
             i = self.set_volt(volt)
             v = self.get_volt()
             self.iv['I'].append(i)
             self.iv['V'].append(v)
             self.iv['V_set'].append(volt)
-            plt.scatter(v, i, c='blue', s=2)
+            logger.info(f"i = {i} v = {v}; {ind/len(volt_range) * 100} %")
         return self.iv
 
     def measure_reflection(
@@ -90,7 +91,9 @@ class NIBlock:
             vna_ip,
     ):
         self.refl = defaultdict(list)
-        for volt in volt_range:
+        for ind, volt in enumerate(volt_range):
+            if ind == 0:
+                time.sleep(0.1)
             i = self.set_volt(volt)
             v = self.get_volt()
             self.iv['I'].append(i)
@@ -108,6 +111,7 @@ class NIBlock:
             )
             self.refl[f"{v};{i}"] = res['trace']
             self.refl['freq'] = res['freq']
+            logger.info(f"i = {i} v = {v}; {ind/len(volt_range) * 100} %")
 
         return self.iv, self.refl
 
@@ -117,7 +121,7 @@ class NIBlock:
         plt.figure(figsize=(9,5))
         plt.plot(iv['V'], iv['I'])
         plt.xlabel('voltage, mV')
-        plt.ylabel('current, mkA')
+        plt.ylabel('current, mA')
         plt.grid()
         plt.show()
 
@@ -142,7 +146,7 @@ class NIContainer:
         self.block.set_volt(-delta/self.params[0])
 
     def update_params(self):
-        self.measure_iv(np.linspace(0, 1, 500))
+        self.measure_iv(np.linspace(0, 1, 300))
         lin = lambda x, a, b: a*x + b
         opt, cov = curve_fit(lin, self.volt_range, self.iv['V'])
         self.params = opt
@@ -153,7 +157,7 @@ class NIContainer:
         self.set_zero()
         self.volt_range = volt_range
         self.iv = self.block.measure_iv(volt_range=self.volt_range)
-        self.block.set_volt(initial / self.params[0] - self.params[1])
+        self.block.set_volt(initial)
 
     def plot_iv(self):
         self.block.plot_iv(self.iv)
@@ -197,7 +201,7 @@ class NIContainer:
 
         
 if __name__ == '__main__':
-    volt_range = np.linspace(1, 1.7, 500)
+    volt_range = np.linspace(1, 1.7, 300)
     container = NIContainer()
     # container.update_params()
     container.measure_iv(volt_range)
