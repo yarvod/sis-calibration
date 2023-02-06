@@ -68,13 +68,14 @@ class NIBlock:
             return np.mean(data)
 
     def measure_iv(self, volt_range: list):
-    
+        plt.ion()
         for volt in volt_range:
             i = self.set_volt(volt)
             v = self.get_volt()
             self.iv['I'].append(i)
             self.iv['V'].append(v)
             self.iv['V_set'].append(volt)
+            plt.scatter(v, i, c='blue', s=2)
         return self.iv
 
     def measure_reflection(

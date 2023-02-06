@@ -168,10 +168,21 @@ class Mixer:
             for s in self.cal_table.columns[:-1]
         )
 
+        self.IV_pumped = dict(
+            (
+                float(s.split(';')[0]) + self.offset[0],
+                float(s.split(';')[1]) + self.offset[1]
+            )
+            for s in self.meas_table.columns[:-1]
+        )
+
         self.LO_rate = LO_rate
 
         self.I = np.array(list(self.IV_curve.values()))
         self.V = np.array(list(self.IV_curve.keys()))
+
+        self.I_pumped = np.array(list(self.IV_pumped.values()))
+        self.V_pumped = np.array(list(self.IV_pumped.keys()))
 
         self.V_bias = V_bias
         self.rho = rho
@@ -250,8 +261,8 @@ class Mixer:
             'load': {'opt_re': [], 'cov_re': [], 'opt_im': [], 'cov_im': []}
         }
         nu0_range = self.freq_list[::20]
-        f_re = lambda x, a1, a2, a3, a4: a1 * x ** 3 + a2 * x ** 2 + a3 * x + a4
-        f_im = lambda x, a1, a2, a3, a4: a1 * x ** 3 + a2 * x ** 2 + a3 * x + a4
+        f_re = lambda x, a1, a2, a3, a4, a5: a1 * x ** 4 + a2 * x ** 3 + a3 * x ** 2 + a4 * x + a5
+        f_im = lambda x, a1, a2, a3, a4, a5: a1 * x ** 4 + a2 * x ** 3 + a3 * x ** 2 + a4 * x + a5
 
         range_time = datetime.now()
         for nu0 in nu0_range:

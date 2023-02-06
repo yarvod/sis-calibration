@@ -59,7 +59,7 @@ class Base:
                 self.IV_curve_path_rel.set(''.join(self.IV_curve_path.get().rsplit(self.exp_path.get())))
 
     # I-V curve
-    def meas_iv(self, plot=True, save=False):
+    def meas_iv(self, plot=False, save=False):
         iv = self.block.measure_IV(
             v_from=float(self.volt_start.get()),
             v_to=float(self.volt_stop.get()), points=int(self.iv_point_num.get()))
@@ -69,7 +69,7 @@ class Base:
             path = filedialog.asksaveasfilename(defaultextension=".csv")
             self.block.write_IV_csv(path=path, iv=iv)
 
-    def meas_iv_new(self, plot=True, save=False):
+    def meas_iv_new(self, plot=False, save=False):
         volt_range = np.linspace(
             float(self.volt_start.get()), float(self.volt_stop.get()), int(self.iv_point_num.get())
         )
