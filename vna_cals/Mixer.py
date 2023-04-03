@@ -227,20 +227,22 @@ class Mixer:
 
     @property
     def In(self):
-        return self.I / (self.Igap * 2)
+        return self.I / (self.Igap)
 
     @property
     def Igap(self):
-        cond = slope(self.V, self.I)
-        ind = np.where(cond == np.max(cond))
-        return self.I[ind]
+        # cond = slope(self.V, self.I)
+        # ind = np.where(cond == np.max(cond))
+        # return self.I[ind]
+        return 0.000161
 
     @property
     def Vgap(self):
-        cond = slope(self.V, self.I)
-        ind = np.where(cond == np.max(cond))
-        
-        return self.V[ind]
+        # cond = slope(self.V, self.I)
+        # ind = np.where(cond == np.max(cond))
+        #
+        # return self.V[ind]
+        return 0.002857
 
     @staticmethod
     def kron(a, b):
@@ -316,7 +318,7 @@ class Mixer:
                             ((self.resp.idc((V0 + n1 * hbar * om / e + hbar * omm(m1) / e) / self.Vgap) - self.resp.idc(
                                 (V0 + n1 * hbar * om / e) / self.Vgap)) +
                              (self.resp.idc((V0 + n * hbar * om / e) / self.Vgap) - self.resp.idc(
-                                 (V0 + n * hbar * om / e - hbar * omm(m1) / e) / self.Vgap))) * self.Igap * 2
+                                 (V0 + n * hbar * om / e - hbar * omm(m1) / e) / self.Vgap))) * self.Igap
                         )
                 g[m + d][m1 + d] *= e / (2 * hbar * om0)
 
@@ -347,7 +349,7 @@ class Mixer:
                             ((self.resp.idc((V0 + n1 * hbar * om / e + hbar * omm(m1) / e) / self.Vgap) - self.resp.idc(
                                 (V0 + n1 * hbar * om / e) / self.Vgap)) - \
                              (self.resp.idc((V0 + n * hbar * om / e) / self.Vgap) - self.resp.idc(
-                                 (V0 + n * hbar * om / e - hbar * omm(m1) / e) / self.Vgap))) * self.Igap * 2
+                                 (V0 + n * hbar * om / e - hbar * omm(m1) / e) / self.Vgap))) * self.Igap
                         )
                 b[m + d][m1 + d] *= e / (2 * hbar * om0)
 

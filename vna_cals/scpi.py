@@ -43,6 +43,9 @@ class Block:
     def set_voltage(self, volt: float):
         self.manipulate(f'BIAS:DEV2:VOLT {volt}')
 
+    def set_ctrl_current(self, curr: float):
+        self.manipulate(f'CTRL:DEV2:CURR {curr}')
+
     def measure_IV(self, v_from: float, v_to: float, points: int):
         ats = 10
         iv = defaultdict(list)
