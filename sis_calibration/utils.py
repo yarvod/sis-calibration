@@ -9,8 +9,8 @@ def reim(df, num=None):
     if not num:
         num = len(df)
     data_z = np.zeros(shape=(num), dtype=np.complex128)
-    data_z.real = np.array(df['re'], dtype=np.float64)
-    data_z.imag = np.array(df['im'], dtype=np.float64)
+    data_z.real = np.array(df["re"], dtype=np.float64)
+    data_z.imag = np.array(df["im"], dtype=np.float64)
     return data_z
 
 
@@ -27,7 +27,7 @@ def moving_average(a, n=3):
     a = np.array(a)
     ret = np.cumsum(a)
     ret[n:] = ret[n:] - ret[:-n]
-    return ret[n - 1:] / n
+    return ret[n - 1 :] / n
 
 
 def power_aver(vec, n):
@@ -59,22 +59,22 @@ def calc_offset(V, I):
     V = V + offset_v
     v_nearest2zero = min(abs(V))
     ind_0 = np.where((V == v_nearest2zero) | (V == -v_nearest2zero))
-    offset_i = - I[ind_0]  # for addition
+    offset_i = -I[ind_0]  # for addition
 
     return offset_v, offset_i
 
 
 def carve_iv(lst):
-    v = np.array([float(it.split('\t')[0].replace(',', '.')) for it in lst])
-    i = np.array([float(it.split('\t')[1].replace(',', '.')) for it in lst])
+    v = np.array([float(it.split("\t")[0].replace(",", ".")) for it in lst])
+    i = np.array([float(it.split("\t")[1].replace(",", ".")) for it in lst])
     return dict(V=v, I=i)
 
 
 def parse_iv(name, split):
     lst = []
-    with open(name, 'r') as f:
+    with open(name, "r") as f:
         lst = f.readlines()
-        lst = lst[split[0]: split[1]]
+        lst = lst[split[0] : split[1]]
 
     iv_dict = carve_iv(lst)
 
@@ -84,17 +84,19 @@ def parse_iv(name, split):
 def parse_ivs(name):
     splits = defaultdict(list)
     data = dict()
-    with open(name, 'r') as f:
+    with open(name, "r") as f:
 
         curve_num = 0
         lines = f.readlines()
         for i, line in enumerate(lines):
-            if re.search(r'#START Curve Data', line):
+            if re.search(r"#START Curve Data", line):
                 curve_num += 1
                 splits[curve_num].append(i + 1)
-            if re.search(r'#END Curve [0-9]', line):
+            if re.search(r"#END Curve [0-9]", line):
                 splits[curve_num].append(i)
 
-        data = {num: carve_iv(lines[split[0]:split[1]]) for num, split in splits.items()}
+        data = {
+            num: carve_iv(lines[split[0] : split[1]]) for num, split in splits.items()
+        }
 
     return data
