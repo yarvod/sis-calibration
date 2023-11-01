@@ -1,5 +1,5 @@
 import pandas as pd
-from vna_cals.utils import reim
+from sis_calibration.utils import reim
 import os
 
 
@@ -8,21 +8,18 @@ path = os.path.dirname(os.path.abspath(__file__))
 
 class Impedances:
 
-    PATH2DATA = path + '/data/'
+    PATH2DATA = path + "/data/"
 
-    DESIGNS = dict((
-        ('t1', 'T1.csv'),
-        ('t2', 'T2.csv'),
-        ('t3', 'T3.csv'),
-        ('t4', 'T4.csv')
-    ))
+    DESIGNS = dict(
+        (("t1", "T1.csv"), ("t2", "T2.csv"), ("t3", "T3.csv"), ("t4", "T4.csv"))
+    )
 
     def __init__(self, design: str) -> None:
-        assert design in self.DESIGNS, f'Choose one of designs: {self.DESIGNS.keys()}'
+        assert design in self.DESIGNS, f"Choose one of designs: {self.DESIGNS.keys()}"
         self.design = design
 
     def __str__(self):
-        return f'Design: {self.design}'
+        return f"Design: {self.design}"
 
     __repr__ = __str__
 
@@ -37,8 +34,5 @@ class Impedances:
     @property
     def data(self):
         reim_data = reim(self.raw_data)
-        data = pd.DataFrame(dict(
-            freq=self.raw_data.freq,
-            reim=reim_data
-        ))
+        data = pd.DataFrame(dict(freq=self.raw_data.freq, reim=reim_data))
         return data
