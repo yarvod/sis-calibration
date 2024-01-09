@@ -9,7 +9,7 @@ def read(filename):
 
 setup(
     name="sis-calibration",
-    version="0.14",
+    version="0.15",
     description="SIS calibration",
     long_description=read("README.md"),
     long_description_content_type="text/markdown",
@@ -18,5 +18,5 @@ setup(
     url="https://github.com/sisteralab/sis-calibration",
     keywords="sis vna",
     packages=find_packages(),
-    install_requires=["numpy", "scipy", "matplotlib", "QMix == 1.0.5"],
+    install_requires=["numpy", "scipy", "matplotlib", "QMix"],
 )
