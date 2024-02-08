@@ -11,7 +11,7 @@ from scipy.optimize import curve_fit
 
 import logging
 
-from sis_calibration import slope, get_gap
+from .utils import get_gap
 
 logger = logging.getLogger(__name__)
 debug = logger.debug
