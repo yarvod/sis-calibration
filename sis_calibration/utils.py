@@ -6,7 +6,7 @@ import numpy as np
 from scipy.interpolate import splrep, splev, BSpline
 from scipy.optimize import curve_fit
 from scipy.signal import savgol_filter
-
+from matplotlib import pyplot as plt
 
 def reim(df, num=None):
     if not num:
@@ -159,6 +159,7 @@ def get_gap(
     voltage_rn_start: float = 0.004,
     sgf_window: int = 50,
     sgf_degree: int = 5,
+    plot: bool = False,
 ) -> Tuple[float, float]:
     """
     :param voltage: Voltage [V]
@@ -168,6 +169,7 @@ def get_gap(
     :param voltage_rn_start: Voltage [V] where Normal resistance starts
     :param sgf_window
     :param sgf_degree
+    :param plot
     """
     voltage = savgol_filter(voltage, sgf_window, sgf_degree)
     current = savgol_filter(current, sgf_window, sgf_degree)
@@ -210,5 +212,19 @@ def get_gap(
     delta = np.abs(iv_fun(voltage_range_2) - center_igap)
 
     v_gap = voltage_range_2[np.where(delta == np.min(delta))]
+
+    if plot:
+        plt.figure()
+        plt.title(f"V_gap = {v_gap[0] * 1e3:.3} mV; I_gap = {i_gap[0] * 1e3:.3} mA")
+        plt.plot(voltage * 1e3, current * 1e3, label='I-V curve')
+        plt.plot(voltage_range * 1e3, rd_lin * 1e3, label='Rn')
+        plt.scatter(voltage_high * 1e3, current_high * 1e3, label='current high', c='r')
+        plt.scatter(voltage_low * 1e3, current_low * 1e3, label='current low', c='green')
+        plt.scatter(v_gap * 1e3, (current_low + i_gap / 2) * 1e3, label=f'v_gap & i_gap / 2', c='black')
+        plt.xlabel('Voltage, mV')
+        plt.ylabel("Current, mA")
+        plt.grid()
+        plt.legend()
+        plt.show()
 
     return v_gap[0], i_gap[0]
