@@ -2,16 +2,16 @@ from datetime import datetime
 from collections import defaultdict
 
 import numpy as np
-from matplotlib import pyplot as plt
 import pandas as pd
 
 from mpmath import besselj
 from qmix.respfn import RespFnFromIVData
-from qmix.mathfn.misc import slope
 from scipy.constants import e, hbar
 from scipy.optimize import curve_fit
 
 import logging
+
+from sis_calibration import slope, get_gap
 
 logger = logging.getLogger(__name__)
 debug = logger.debug
@@ -88,97 +88,6 @@ class Measure:
         cals_frame = pd.DataFrame(data=cals, index=self.freq_list.round(4))
         self.point_calibrated = self._Gamma(self.point_z, cals_frame)
 
-    def plot(
-        self,
-        pic_name="SIS_IF_Ref",
-        plot_phase=None,
-        title="SIS IF Reflection",
-        pic_path="",
-        save=False,
-        start=None,
-        stop=None,
-    ):
-
-        if plot_phase:
-            plt.figure(figsize=(19, 6))
-            plt.suptitle(title)
-
-            plt.subplot(121)
-            plt.plot(
-                self.freq_list[start:stop],
-                20 * np.log10(np.abs(self.point_calibrated))[start:stop],
-            )
-            plt.xlabel("frequency, GHz")
-            plt.ylabel("Amp, dB")
-            plt.minorticks_on()
-            plt.grid(which="minor", linestyle=":")
-            plt.grid()
-
-            plt.subplot(122)
-            plt.plot(
-                self.freq_list[start:stop], np.angle(self.point_calibrated)[start:stop]
-            )
-            plt.xlabel("frequency, GHz")
-            plt.ylabel(r"phase, $rad$")
-            plt.minorticks_on()
-            plt.grid(which="minor", linestyle=":")
-            plt.grid()
-        if not plot_phase:
-            plt.figure(figsize=(10, 6))
-            plt.title(title)
-
-            plt.plot(
-                self.freq_list[start:stop],
-                20 * np.log10(np.abs(self.point_calibrated))[start:stop],
-            )
-            plt.xlabel("frequency, GHz")
-            plt.ylabel("Amp, dB")
-            plt.minorticks_on()
-            plt.grid(which="minor", linestyle=":")
-            plt.grid()
-
-        if save:
-            plt.savefig(pic_path + pic_name + ".pdf", dpi=400)
-        plt.show()
-
-    def plot_cals(
-        self,
-        pic_name="Cals",
-        title="Calibrations",
-        pic_path="",
-        save=False,
-        plot_measured=False,
-        plot_calibrated=False,
-    ):
-
-        plt.figure(figsize=(10, 6))
-        plt.title(title)
-
-        lgnd = ["open", "short", "load"]
-        self._get_z()
-        plt.plot(self.freq_list, 20 * np.log10(np.abs(self.cal_open_z)))
-        plt.plot(self.freq_list, 20 * np.log10(np.abs(self.cal_short_z)))
-        plt.plot(self.freq_list, 20 * np.log10(np.abs(self.cal_load_z)))
-
-        if plot_calibrated:
-            plt.plot(self.freq_list, 20 * np.log10(np.abs(self.point_calibrated)))
-            lgnd.append("point_calibrated")
-        if plot_measured:
-            plt.plot(self.freq_list, 20 * np.log10(np.abs(self.point_z)))
-            lgnd.append("point_measured")
-
-        plt.legend(lgnd)
-
-        plt.xlabel("frequency, GHz")
-        plt.ylabel("Amp, dB")
-        plt.minorticks_on()
-        plt.grid(which="minor", linestyle=":")
-        plt.grid()
-
-        if save:
-            plt.savefig(pic_path + pic_name + ".png", dpi=400)
-        plt.show()
-
 
 class Mixer:
     def __init__(
@@ -191,6 +100,13 @@ class Mixer:
         Ym=None,
         offset=(0, 0),
         rho=50,
+        gap_params={
+            'voltage_gap_start': 0.0022,
+            'voltage_gap_end': 0.003,
+            'voltage_rn_start': 0.004,
+            'sgf_window': 50,
+            'sgf_degree': 5,
+        }
     ):
         self.meas_table = meas_table
         self.cal_table = cal_table
@@ -217,6 +133,8 @@ class Mixer:
 
         self.I = np.array(list(self.IV_curve.values()))
         self.V = np.array(list(self.IV_curve.keys()))
+
+        self.Vgap, self.Igap = get_gap(self.V, self.I, **gap_params)
 
         self.I_pumped = np.array(list(self.IV_pumped.values()))
         self.V_pumped = np.array(list(self.IV_pumped.keys()))
@@ -271,21 +189,6 @@ class Mixer:
     @property
     def In(self):
         return self.I / (self.Igap)
-
-    @property
-    def Igap(self):
-        # cond = slope(self.V, self.I)
-        # ind = np.where(cond == np.max(cond))
-        # return self.I[ind]
-        return 0.000161
-
-    @property
-    def Vgap(self):
-        # cond = slope(self.V, self.I)
-        # ind = np.where(cond == np.max(cond))
-        #
-        # return self.V[ind]
-        return 0.002857
 
     @staticmethod
     def kron(a, b):
@@ -499,26 +402,6 @@ class Mixer:
                 * 2
             )
         return float(res[0])
-
-    def plot_Ip(self, al, nu, V=None):
-        """
-        :param float al: pumping parameter
-        :param float nu: Heterodyne rate
-        :param float V: bias voltages range
-        """
-        if not V:
-            V = self.V
-
-        plt.figure(figsize=(10, 6))
-        plt.plot(self.V * 1000, self.I * 1000, label="autonomus")
-        plt.plot(
-            self.V * 1000, np.vectorize(self.Ip)(V, al=al, nu=nu) * 1000, label="pumped"
-        )
-        plt.ylabel("I, mA")
-        plt.xlabel("V, mV")
-        plt.legend()
-        plt.grid()
-        plt.show()
 
 
 def mixing(

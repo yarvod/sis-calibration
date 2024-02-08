@@ -1,8 +1,11 @@
 import re
 from collections import defaultdict
+from typing import Tuple
 
 import numpy as np
-from qmix.mathfn.misc import slope
+from scipy.interpolate import splrep, splev, BSpline
+from scipy.optimize import curve_fit
+from scipy.signal import savgol_filter
 
 
 def reim(df, num=None):
@@ -100,3 +103,112 @@ def parse_ivs(name):
         }
 
     return data
+
+
+def slope(x, y):
+    der = np.zeros(len(x), dtype=float)
+
+    rise = y[2:] - y[:-2]
+    run = x[2:] - x[:-2]
+
+    with np.errstate(divide='ignore'):
+        der[1:-1] = rise / run
+        der[0] = (y[1] - y[0]) / (x[1] - x[0])
+        der[-1] = (y[-1] - y[-2]) / (x[-1] - x[-2])
+
+    return der
+
+
+def filter_increase(x: np.ndarray):
+    """
+    Returns: Appropriate indexes of initial data
+    """
+    indx = [0]
+    for i, el in enumerate(x):
+        if i == 0:
+            continue
+        mask = x < el
+        if all(mask[:i]):
+            indx.append(i)
+    return indx
+
+
+def spline_curve(
+    x: np.ndarray,
+    y: np.ndarray
+):
+    indx = filter_increase(x)
+    tck = splrep(x[indx], y[indx], s=0)
+    return BSpline(*tck)
+
+
+def derivative_spline_curve(
+    x: np.ndarray,
+    y: np.ndarray,
+):
+    indx = filter_increase(x)
+    tck = splrep(x[indx], y[indx], s=0)
+    return lambda xnew: splev(xnew, tck, der=1)
+
+
+def get_gap(
+    voltage: np.ndarray,
+    current: np.ndarray,
+    voltage_gap_start: float = 0.0022,
+    voltage_gap_end: float = 0.003,
+    voltage_rn_start: float = 0.004,
+    sgf_window: int = 50,
+    sgf_degree: int = 5,
+) -> Tuple[float, float]:
+    """
+    :param voltage: Voltage [V]
+    :param current: Current [A]
+    :param voltage_gap_start: Voltage [V] where gap starts
+    :param voltage_gap_end: Voltage [V] where gap ends
+    :param voltage_rn_start: Voltage [V] where Normal resistance starts
+    :param sgf_window
+    :param sgf_degree
+    """
+    voltage = savgol_filter(voltage, sgf_window, sgf_degree)
+    current = savgol_filter(current, sgf_window, sgf_degree)
+
+    linear = lambda x, a, b: a * x + b
+
+    iv_fun = spline_curve(voltage, current)
+
+    voltage = np.linspace(voltage[0], voltage[-1], 2001)
+    current = iv_fun(voltage)
+
+    rd = 1 / slope(voltage, current)
+
+    opt, _ = curve_fit(linear, voltage[voltage > voltage_rn_start], current[voltage > voltage_rn_start])
+    rn = 1 / opt[0]
+
+    # find low current
+    voltage_gap = voltage[np.where(rd == np.min(rd[(voltage > voltage_gap_start) & (voltage < voltage_gap_end)]))]
+    mask = (voltage > voltage_gap_start) & (voltage < voltage_gap)
+    rd_mask = rd[mask]
+    delta = np.abs(rd_mask - rn / 2)
+    closest_to_rn = rd_mask[delta == np.min(delta)]
+    current_low = current[mask][np.where((rd_mask == closest_to_rn))]
+    voltage_low = voltage[mask][np.where((rd_mask == closest_to_rn))]
+
+    # find high current
+    voltage_range = voltage[(voltage > voltage_gap_start) & (voltage < voltage_gap_end)]
+    current_range = current[(voltage > voltage_gap_start) & (voltage < voltage_gap_end)]
+    rd_lin = np.vectorize(lambda x: linear(x, *opt))(voltage_range)
+    cross_indx = np.argwhere(np.diff(np.sign(rd_lin - current_range))).flatten()
+    min_cross_ind = np.min(cross_indx)
+    current_high = current_range[min_cross_ind]
+    voltage_high = voltage_range[min_cross_ind]
+
+    i_gap = current_high - current_low
+
+    # find vgap
+    center_igap = current_low + i_gap / 2
+    voltage_range_2 = np.linspace(voltage_gap_start, voltage_gap_end, 1001)
+    delta = np.abs(iv_fun(voltage_range_2) - center_igap)
+
+    v_gap = voltage_range_2[np.where(delta == np.min(delta))]
+
+    return v_gap[0], i_gap[0]

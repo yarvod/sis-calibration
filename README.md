@@ -24,7 +24,7 @@ __All there formulas from Tucker & Feldman theory__
 
 Setup py package
 ```bash
-python setup.py sdist bdist_wheel
+python setup.py sdist
 ```
 Upload to pypi
 ```bash
