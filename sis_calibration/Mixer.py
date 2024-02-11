@@ -332,17 +332,17 @@ class Mixer:
                             * self.kron(m - m1, n1 - n)
                             * (
                                 (
-                                    self.resp.idc(
+                                    self.resp.ikk(
                                         (V0 + n1 * hbar * om / e + hbar * omm(m1) / e)
                                         / self.Vgap
                                     )
-                                    - self.resp.idc(
+                                    - self.resp.ikk(
                                         (V0 + n1 * hbar * om / e) / self.Vgap
                                     )
                                 )
                                 - (
-                                    self.resp.idc((V0 + n * hbar * om / e) / self.Vgap)
-                                    - self.resp.idc(
+                                    self.resp.ikk((V0 + n * hbar * om / e) / self.Vgap)
+                                    - self.resp.ikk(
                                         (V0 + n * hbar * om / e - hbar * omm(m1) / e)
                                         / self.Vgap
                                     )
