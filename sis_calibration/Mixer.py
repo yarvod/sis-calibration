@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 
 from mpmath import besselj
-from qmix.respfn import RespFnFromIVData
+from .respfn import RespFnFromIVData
 from scipy.constants import e, hbar
 from scipy.optimize import curve_fit
 
