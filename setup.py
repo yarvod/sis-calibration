@@ -18,5 +18,5 @@ setup(
     url="https://github.com/sisteralab/sis-calibration",
     keywords="sis vna",
     packages=find_packages(),
-    install_requires=["numpy", "scipy", "QMix", "port_calibration"],
+    install_requires=["numpy", "scipy", "matplotlib", "QMix", "port_calibration"],
 )
