@@ -24,3 +24,4 @@ jobs:
           pypi-token: ${{ secrets.PYPI_TOKEN }}
           gh-token: ${{ secrets.GITHUB }}
           parse-changelog: true
+          pkg-name: sis-calibration
