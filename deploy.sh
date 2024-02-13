@@ -11,4 +11,4 @@ git commit --allow-empty -m "Release $Tag"
 git tag -a $Tag -m "Version $Tag"
 
 # Push
-git push upstream --tags
+git push origin --tags
