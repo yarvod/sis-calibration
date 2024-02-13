@@ -399,9 +399,8 @@ class Mixer:
                 besselj(n, al) ** 2
                 * self.resp.idc((V0 + n * hbar * om / e) / self.Vgap)
                 * self.Igap
-                * 2
             )
-        return float(res[0])
+        return float(res)
 
 
 def mixing(
