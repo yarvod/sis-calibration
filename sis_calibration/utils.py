@@ -8,6 +8,7 @@ from scipy.optimize import curve_fit
 from scipy.signal import savgol_filter
 from matplotlib import pyplot as plt
 
+
 def reim(df, num=None):
     if not num:
         num = len(df)
@@ -111,7 +112,7 @@ def slope(x, y):
     rise = y[2:] - y[:-2]
     run = x[2:] - x[:-2]
 
-    with np.errstate(divide='ignore'):
+    with np.errstate(divide="ignore"):
         der[1:-1] = rise / run
         der[0] = (y[1] - y[0]) / (x[1] - x[0])
         der[-1] = (y[-1] - y[-2]) / (x[-1] - x[-2])
@@ -133,10 +134,7 @@ def filter_increase(x: np.ndarray):
     return indx
 
 
-def spline_curve(
-    x: np.ndarray,
-    y: np.ndarray
-):
+def spline_curve(x: np.ndarray, y: np.ndarray):
     indx = filter_increase(x)
     tck = splrep(x[indx], y[indx], s=0)
     return BSpline(*tck)
@@ -183,11 +181,18 @@ def get_gap(
 
     rd = 1 / slope(voltage, current)
 
-    opt, _ = curve_fit(linear, voltage[voltage > voltage_rn_start], current[voltage > voltage_rn_start])
+    opt, _ = curve_fit(
+        linear, voltage[voltage > voltage_rn_start], current[voltage > voltage_rn_start]
+    )
     rn = 1 / opt[0]
 
     # find low current
-    voltage_gap = voltage[np.where(rd == np.min(rd[(voltage > voltage_gap_start) & (voltage < voltage_gap_end)]))]
+    voltage_gap = voltage[
+        np.where(
+            rd
+            == np.min(rd[(voltage > voltage_gap_start) & (voltage < voltage_gap_end)])
+        )
+    ]
     mask = (voltage > voltage_gap_start) & (voltage < voltage_gap)
     rd_mask = rd[mask]
     delta = np.abs(rd_mask - rn / 2)
@@ -216,12 +221,19 @@ def get_gap(
     if plot:
         plt.figure()
         plt.title(f"V_gap = {v_gap[0] * 1e3:.3} mV; I_gap = {i_gap[0] * 1e3:.3} mA")
-        plt.plot(voltage * 1e3, current * 1e3, label='I-V curve')
-        plt.plot(voltage_range * 1e3, rd_lin * 1e3, label='Rn')
-        plt.scatter(voltage_high * 1e3, current_high * 1e3, label='current high', c='r')
-        plt.scatter(voltage_low * 1e3, current_low * 1e3, label='current low', c='green')
-        plt.scatter(v_gap * 1e3, (current_low + i_gap / 2) * 1e3, label=f'v_gap & i_gap / 2', c='black')
-        plt.xlabel('Voltage, mV')
+        plt.plot(voltage * 1e3, current * 1e3, label="I-V curve")
+        plt.plot(voltage_range * 1e3, rd_lin * 1e3, label="Rn")
+        plt.scatter(voltage_high * 1e3, current_high * 1e3, label="current high", c="r")
+        plt.scatter(
+            voltage_low * 1e3, current_low * 1e3, label="current low", c="green"
+        )
+        plt.scatter(
+            v_gap * 1e3,
+            (current_low + i_gap / 2) * 1e3,
+            label=f"v_gap & i_gap / 2",
+            c="black",
+        )
+        plt.xlabel("Voltage, mV")
         plt.ylabel("Current, mA")
         plt.grid()
         plt.legend()

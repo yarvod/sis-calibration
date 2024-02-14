@@ -101,12 +101,12 @@ class Mixer:
         offset=(0, 0),
         rho=50,
         gap_params={
-            'voltage_gap_start': 0.0022,
-            'voltage_gap_end': 0.003,
-            'voltage_rn_start': 0.004,
-            'sgf_window': 50,
-            'sgf_degree': 5,
-        }
+            "voltage_gap_start": 0.0022,
+            "voltage_gap_end": 0.003,
+            "voltage_rn_start": 0.004,
+            "sgf_window": 50,
+            "sgf_degree": 5,
+        },
     ):
         self.meas_table = meas_table
         self.cal_table = cal_table

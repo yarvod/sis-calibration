@@ -15,15 +15,16 @@ VINIT.flags.writeable = False
 
 # Generate response function --------------------------------------------------
 
+
 class RespFn(object):
     def __init__(self, voltage, current, **params):
 
         params = _default_params(params)
 
-        if params['verbose']:
+        if params["verbose"]:
             print("Generating response function:")
 
-        assert voltage[0] == 0., "First voltage value must be zero"
+        assert voltage[0] == 0.0, "First voltage value must be zero"
         assert voltage[-1] > 5, "Voltage must extend to at least 5"
 
         # Reflect about y-axis
@@ -31,15 +32,17 @@ class RespFn(object):
         current = np.r_[-current[::-1][:-1], current]
 
         # Smear DC I-V curve (optional)
-        if params['v_smear'] is not None:
+        if params["v_smear"] is not None:
             v_step = voltage[1] - voltage[0]
-            current = gauss_conv(current - voltage,
-                                 sigma=params['v_smear'] / v_step) + voltage
-            if params['verbose']:
-                print(" - Voltage smear: {:.4f}".format(params['v_smear']))
+            current = (
+                gauss_conv(current - voltage, sigma=params["v_smear"] / v_step)
+                + voltage
+            )
+            if params["verbose"]:
+                print(" - Voltage smear: {:.4f}".format(params["v_smear"]))
 
         # Calculate Kramers-Kronig (KK) transform
-        current_kk = kk_trans(voltage, current, params['kk_n'])
+        current_kk = kk_trans(voltage, current, params["kk_n"])
 
         # Interpolate
         f_interp = _setup_interpolation(voltage, current, current_kk, **params)
@@ -67,7 +70,6 @@ class RespFn(object):
     def __call__(self, vbias):
 
         return self.resp(vbias)
-
 
     def idc(self, vbias):
         """Interpolate the DC I-V curve.
@@ -187,7 +189,7 @@ class RespFn(object):
         return self._f_ikk(vbias) - 1j * self._f_idc(vbias)
 
     def resp_swap(self, vbias):
-        """Interpolate the response function, with the real and imaginary 
+        """Interpolate the response function, with the real and imaginary
         components swapped.
 
         Note:
@@ -205,7 +207,7 @@ class RespFn(object):
             vbias (ndarray): Bias voltage (normalized)
 
         Returns:
-            ndarray: Response function with the real and imaginary components 
+            ndarray: Response function with the real and imaginary components
                 swapped
 
         """
@@ -214,6 +216,7 @@ class RespFn(object):
 
 
 # Generate from I-V data ------------------------------------------------------
+
 
 class RespFnFromIVData(RespFn):
     """Generate the response function from I-V data.
@@ -255,13 +258,13 @@ class RespFnFromIVData(RespFn):
         params = _default_params(kwargs, 81, 101)
 
         # Force slope=1 above vmax
-        vmax = params.get('vlimit', 1.8)
+        vmax = params.get("vlimit", 1.8)
         mask = (voltage > 0) & (voltage < vmax)
         current = current[mask]
         voltage = voltage[mask]
         b = current[-1] - voltage[-1]
-        current = np.append(current, [50. + b])
-        voltage = np.append(voltage, [50.])
+        current = np.append(current, [50.0 + b])
+        voltage = np.append(voltage, [50.0])
 
         # Re-sample I-V data
         current = np.interp(VINIT, voltage, current)
@@ -274,6 +277,7 @@ class RespFnFromIVData(RespFn):
 
 
 # Helper functions ------------------------------------------------------------
+
 
 def _setup_interpolation(voltage, current, current_kk, **params):
     """Setup interpolation.
@@ -306,19 +310,19 @@ def _setup_interpolation(voltage, current, current_kk, **params):
     """
 
     # Interpolation parameters
-    npts_dciv = params['max_npts_dc']
-    npts_kkiv = params['max_npts_kk']
-    interp_error = params['max_interp_error']
-    check_error = params['check_error']
-    verbose = params['verbose']
-    spline_order = params['spline_order']
+    npts_dciv = params["max_npts_dc"]
+    npts_kkiv = params["max_npts_kk"]
+    interp_error = params["max_interp_error"]
+    check_error = params["check_error"]
+    verbose = params["verbose"]
+    spline_order = params["spline_order"]
 
     if verbose:
         print(" - Interpolating:")
 
     # Sample data
     dc_idx = _sample_curve(voltage, current, npts_dciv, 0.25)
-    kk_idx = _sample_curve(voltage, current, npts_kkiv, 1.)
+    kk_idx = _sample_curve(voltage, current, npts_kkiv, 1.0)
 
     # Interpolate (cubic spline)
     # Note: k=1 or 2 is much faster, but increases the numerical error.
@@ -370,10 +374,12 @@ def _setup_interpolation(voltage, current, current_kk, **params):
 
     # Check error
     if check_error:
-        assert err_dc.max() < interp_error, \
-            "Interpolation error too high. Please increase max_npts_dc"
-        assert err_kk.max() < interp_error, \
-            "Interpolation error too high. Please increase max_npts_kk"
+        assert (
+            err_dc.max() < interp_error
+        ), "Interpolation error too high. Please increase max_npts_dc"
+        assert (
+            err_kk.max() < interp_error
+        ), "Interpolation error too high. Please increase max_npts_kk"
 
     return f_dc, f_kk, f_ddc, f_dkk
 
@@ -402,11 +408,11 @@ def _sample_curve(voltage, current, max_npts, smear):
     # Build sampling array
     idx_list = [0]
     # Add indices based on curvy-ness
-    cumsum_last = 0.
+    cumsum_last = 0.0
     voltage_last = voltage[0]
     for idx, v in enumerate(voltage):
         condition1 = abs(v) < 0.05 or abs(v - 1) < 0.1 or abs(v + 1) < 0.1
-        condition2 = v - voltage_last >= 1.
+        condition2 = v - voltage_last >= 1.0
         condition3 = (cumsum[idx] - cumsum_last) * max_npts / cumsum[-1] > 1
         condition4 = idx < 3 or idx > len(voltage) - 4
         if condition1 or condition2 or condition3 or condition4:
@@ -417,11 +423,13 @@ def _sample_curve(voltage, current, max_npts, smear):
     # Add 10 to start/end
     for i in range(0, int(1 / VSTEP), int(1 / VSTEP / 10)):
         idx_list.append(i)
-    for i in range(len(voltage) - int(1 / VSTEP) - 1, len(voltage), int(1 / VSTEP / 10)):
+    for i in range(
+        len(voltage) - int(1 / VSTEP) - 1, len(voltage), int(1 / VSTEP / 10)
+    ):
         idx_list.append(i)
     # Add 30 pts to middle
-    ind_low = np.abs(voltage + 1.).argmin()
-    ind_high = np.abs(voltage - 1.).argmin()
+    ind_low = np.abs(voltage + 1.0).argmin()
+    ind_high = np.abs(voltage - 1.0).argmin()
     npts = ind_high - ind_low
     for i in range(ind_low, ind_high, npts // 30):
         idx_list.append(i)
@@ -432,23 +440,32 @@ def _sample_curve(voltage, current, max_npts, smear):
     return idx_list
 
 
-def _default_params(kwargs, max_dc=101, max_kk=151, max_error=0.001,
-                    check_error=False, verbose=True, v_smear=None, kk_n=50,
-                    spline_order=3):
+def _default_params(
+    kwargs,
+    max_dc=101,
+    max_kk=151,
+    max_error=0.001,
+    check_error=False,
+    verbose=True,
+    v_smear=None,
+    kk_n=50,
+    spline_order=3,
+):
     """These are the default parameters that are used for generating response
     functions. These parameters match the keyword arguments of ``RespFn``, so
     see that docstring for more information."""
 
     # Grab default params from the keyword arguments for this function
-    params = {'max_npts_dc': max_dc,
-              'max_npts_kk': max_kk,
-              'max_interp_error': max_error,
-              'check_error': check_error,
-              'verbose': verbose,
-              'v_smear': v_smear,
-              'kk_n': kk_n,
-              'spline_order': spline_order,
-              }
+    params = {
+        "max_npts_dc": max_dc,
+        "max_npts_kk": max_kk,
+        "max_interp_error": max_error,
+        "check_error": check_error,
+        "verbose": verbose,
+        "v_smear": v_smear,
+        "kk_n": kk_n,
+        "spline_order": spline_order,
+    }
 
     # Update kwargs with the new parameters
     params.update(kwargs)
@@ -472,15 +489,14 @@ def gauss_conv(x, sigma=10, ext_x=3):
     """
 
     wind = _gauss(sigma, ext_x)
-    wlen = np.alen(wind)
+    wlen = np.len(wind)
 
     assert wlen <= np.alen(x), "Window size must be smaller than data size"
-    assert sigma * ext_x >= 1, \
-        "Window size must be larger than 1. Increase ext_x."
+    assert sigma * ext_x >= 1, "Window size must be larger than 1. Increase ext_x."
 
-    s = np.r_[x[wlen - 1:0:-1], x, x[-2:-wlen - 1:-1]]
-    y_out = np.convolve(wind / wind.sum(), s, mode='valid')
-    y_out = y_out[wlen // 2:-wlen // 2 + 1]
+    s = np.r_[x[wlen - 1 : 0 : -1], x, x[-2 : -wlen - 1 : -1]]
+    y_out = np.convolve(wind / wind.sum(), s, mode="valid")
+    y_out = y_out[wlen // 2 : -wlen // 2 + 1]
 
     return y_out
 
