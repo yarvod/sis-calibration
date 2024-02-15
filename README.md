@@ -38,7 +38,7 @@ Y'_{mm} =
 \end{bmatrix}
 ```
 
-$Y_{IF} = 1/Z'_{00} $, with $ Y_L = 0 \; \Rightarrow \; Y_{IF} = Y_{00}$
+$Y_{IF} = 1/Z'_{00}$, with $Y_L = 0 \; \Rightarrow \; Y_{IF} = Y_{00}$
 
 
 
