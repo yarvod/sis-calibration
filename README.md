@@ -23,7 +23,7 @@ I_{kk}(V_0 + n \hbar \omega/e - \hbar \omega_{m\prime}/e) \right]  \right\}
 ```
 
 
-$ \omega_m = m \cdot \omega + \omega_0$
+$\omega_m = m \cdot \omega + \omega_0$
 
 $\omega$ - LO rate, $\omega_0$ - IF rate, $\omega_m$ - Signal rate
 
@@ -38,7 +38,7 @@ Y'_{mm} =
 \end{bmatrix}
 ```
 
-$ Y_{IF} = 1/Z'_{00} $, with $ Y_L = 0 \; \Rightarrow \; Y_{IF} = Y_{00}$
+$Y_{IF} = 1/Z'_{00} $, with $ Y_L = 0 \; \Rightarrow \; Y_{IF} = Y_{00}$
 
 
 
