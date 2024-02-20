@@ -1,3 +1,6 @@
+"""This code written by John Garett https://github.com/garrettj403/QMix"""
+
+
 import numpy as np
 from scipy.signal import hilbert
 

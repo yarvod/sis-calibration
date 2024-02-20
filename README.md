@@ -38,11 +38,13 @@ Y'_{mm} =
 \end{bmatrix}
 ```
 
-$Y_{IF} = 1/Z'_{00}$, with $Y_L = 0 \; \Rightarrow \; Y_{IF} = Y_{00}$
+$Y_{IF} = 1/Z'_{00}$
 
 
 
 __All there formulas from Tucker & Feldman theory__
+
+For I-V curve analysis used RespFnFromIVData from QMix https://github.com/garrettj403/QMix
 
 
 ## Releases are published automatically when a tag is pushed to GitHub.

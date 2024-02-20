@@ -1,8 +1,7 @@
 from datetime import datetime
-from collections import defaultdict
+from typing import List, Union, Dict, Tuple, Callable
 
 import numpy as np
-import pandas as pd
 
 from mpmath import besselj
 from .respfn import RespFnFromIVData
@@ -18,55 +17,80 @@ debug = logger.debug
 
 
 class Measure:
-    def __init__(self, meas, cals, cal_impedance, point_num, freq_list, rho=50):
-        self.meas = meas
+    def __init__(
+        self,
+        reflection: List[complex],
+        cals: Dict[str, List],
+        cal_impedance: Dict[str, Callable],
+        voltage: float,
+        current: float,
+        if_list: List[float],
+        rho: float = 50
+    ):
+        """
+
+        :param list of complex reflection:
+        :param dict cals: Reflection in calibration points {"open": [1 + 1j, ...], "short": ..., "load": ...}
+        :param dict of Callable cal_impedance: {"open": func(if), "short": ..., "load": ...} func calculate impedance
+        :param float voltage: bias voltage,
+        :param float current: bias current,
+        :param if_list: List of IFs
+        :param rho:
+        """
+        self.reflection = reflection
+        self.calibrated_reflection = None
         self.cals = cals
         self.open_z = np.vectorize(cal_impedance.get("open")) or None
         self.short_z = np.vectorize(cal_impedance.get("short")) or None
         self.load_z = np.vectorize(cal_impedance.get("load")) or None
+
+        self.voltage = voltage
+        self.current = current
+
+        self.if_list = if_list
+        self.point_num = len(if_list)
         self.rho = rho
 
-        self.freq_list = freq_list / 1e9
+    def __str__(self):
+        return f"{self.__class__.__name__}(V={self.voltage}, I={self.current}, rho={self.rho})"
 
-        self.point_num = point_num
+    __repr__ = __str__
 
-    def _get_z(self):
-        self.cal_load_z = self.cals.iloc[:, 2]
-        self.cal_open_z = self.cals.iloc[:, 0]
-        self.cal_short_z = self.cals.iloc[:, 1]
-
-        self.point_z = np.array(self.meas, dtype=np.complex128)
+    def _set_z(self):
+        self.cal_load_z = np.array(self.cals["load"], dtype=np.complex128)
+        self.cal_open_z = np.array(self.cals["open"], dtype=np.complex128)
+        self.cal_short_z = np.array(self.cals["short"], dtype=np.complex128)
+        self.reflection_z = np.array(self.reflection, dtype=np.complex128)
 
     @staticmethod
-    def _E_matrix(C, V):
+    def _error_matrix(C, V):
         C_H = np.matrix.getH(C)
         inv_CC_H = np.linalg.inv(np.dot(C_H, C))
         result = np.dot(np.dot(inv_CC_H, C_H), V.T)
         return result
 
     @staticmethod
-    def _Error_Coeffs(vector, cals):
+    def _append_cals_coefs(vector, cals):
         cals["D"].append(vector[1])
         cals["S"].append(vector[2])
         cals["R"].append(vector[0] + vector[1] * vector[2])
 
     @staticmethod
-    def _Gamma(att, cal_frame):
-        gamma = (att - cal_frame["D"]) / (
-            cal_frame["R"] + cal_frame["S"] * att - cal_frame["S"] * cal_frame["D"]
+    def calibrate_reflection(raw_reflection, cal_frame):
+        gamma = (raw_reflection - cal_frame["D"]) / (
+                cal_frame["R"] + cal_frame["S"] * raw_reflection - cal_frame["S"] * cal_frame["D"]
         )
         return gamma
 
-    def _gamma_cal(self, Z_n):
-        return (Z_n - self.rho) / (Z_n + self.rho)
+    def impedance_to_reflection(self, z):
+        return (z - self.rho) / (z + self.rho)
 
     def calibrate(self):
+        self._set_z()
 
-        self._get_z()
-
-        G_a_1 = self._gamma_cal(self.load_z(self.freq_list * 1e9))  # Actual match load
-        G_a_2 = self._gamma_cal(self.open_z(self.freq_list * 1e9))  # Actual open
-        G_a_3 = self._gamma_cal(self.short_z(self.freq_list * 1e9))  # Actual short
+        G_a_1 = self.impedance_to_reflection(self.load_z(self.if_list))  # Actual match load
+        G_a_2 = self.impedance_to_reflection(self.open_z(self.if_list))  # Actual open
+        G_a_3 = self.impedance_to_reflection(self.short_z(self.if_list))  # Actual short
 
         cals = {"D": [], "S": [], "R": []}
         for i in range(self.point_num):
@@ -83,121 +107,202 @@ class Measure:
             )
             V = np.array([G_m_1, G_m_2, G_m_3])
 
-            self._Error_Coeffs(self._E_matrix(C, V), cals)
+            self._append_cals_coefs(self._error_matrix(C, V), cals)
 
-        cals_frame = pd.DataFrame(data=cals, index=self.freq_list.round(4))
-        self.point_calibrated = self._Gamma(self.point_z, cals_frame)
+        self.calibrated_reflection = self.calibrate_reflection(self.reflection_z, cals)
+
+
+class MeasureList(list):
+    def first(self) -> Union["Measure", None]:
+        try:
+            return self[0]
+        except IndexError:
+            return None
+
+    def last(self) -> Union["Measure", None]:
+        try:
+            return self[-1]
+        except IndexError:
+            return None
+
+    def _filter(self, **kwargs) -> filter:
+        def _filter(item):
+            for key, value in kwargs.items():
+                if not getattr(item, key, None) == value:
+                    return False
+            return True
+
+        return filter(_filter, self)
+
+    def filter(self, **kwargs) -> "MeasureList":
+        return self.__class__(self._filter(**kwargs))
+
+    def get_by_voltage(self, voltage: float) -> "Measure":
+        get_voltage = np.array([i.voltage for i in self])
+        diff = np.abs(get_voltage - voltage)
+        ind = np.where(diff == np.min(diff))[0][0]  # TODO: add exception catcher
+        return self[ind]
+
+    def delete_by_index(self, index: int) -> None:
+        del self[index]
+
+
+class CalibrationList(list):
+    def get_by_voltage(self, voltage: float) -> Dict:
+        get_voltage = np.array([i["voltage"] for i in self])
+        diff = np.abs(get_voltage - voltage)
+        ind = np.where(diff == np.min(diff))[0][0]
+        return self[ind]
 
 
 class Mixer:
+    """
+    SIS mixer implementation
+
+    How to use
+    ----------
+    >>> mixer = Mixer(...)
+    >>> mixer.set_measures()
+    >>> mixer.calibrate()
+
+    If you want to set custom calibration impedance before call ``mixer.set_measures()`` you should set:
+    ``mixer.cal_impedance = {"open": func(if), "short": ..., "load": ...}`` Then:
+
+    >>> mixer.set_measures(calculate_cal_impedance=False)
+    >>> mixer.calibrate()
+
+    As a result you can get calibrated measures data:
+
+    >>> mixer.measures  # Returns list of measures MeasureList
+    >>> measure = mixer.measures.get_by_voltage(voltage=0.002)  # Returns closable Measure to voltage 0.002 V
+    >>> measure.calibrated_reflection  # Returns list of calibrated complex reflection. E.g. [1 + 2j, ...]
+    """
     def __init__(
         self,
-        meas_table,
-        cal_table,
-        V_bias,
-        point_num,
-        LO_rate,
-        Ym=None,
-        offset=(0, 0),
-        rho=50,
-        gap_params={
-            "voltage_gap_start": 0.0022,
-            "voltage_gap_end": 0.003,
-            "voltage_rn_start": 0.004,
-            "sgf_window": 50,
-            "sgf_degree": 5,
-        },
+        measure: List[Dict],
+        calibration: List[Dict],
+        v_bias: Dict[str, float],
+        if_list: List[float],
+        lo_rate: float,
+        ym: float = None,
+        offset: Tuple[float] = (0, 0),
+        rho: float = 50,
+        gap_params: Dict[str, float] = None,
+        i_gap: float = None,
+        v_gap: float = None,
     ):
-        self.meas_table = meas_table
-        self.cal_table = cal_table
+        """
+        :param list of dict measure: [{"voltage": 0.02, "current": 0.001, "reflection": [1 + 1j, ...]}, ...]
+        :param list of dict calibration: [{"voltage": 0.02, "current": 0.001, "reflection": [1 + 1j, ...]}, ...]
+        :param dict v_bias: dict of used bias voltages [V] for Open, Short and Load cal. {"open": 0.1, "short": 0.2. "load": 0.3}
+        :param list of float if_list: IF frequency [Hz] values list
+        :param float lo_rate: Local oscillator frequency [Hz]
+        :param list of float ym: High frequency admittance vector [Ohm]
+        :param tuple of float offset: offset by voltage [V] and current [A]
+        :param float rho: Impedance of Y_l [Ohm]
+        :param dict gap_params: parameters of gap searching
+        """
+        self.measure_data = measure
+        self.calibration_data = CalibrationList(calibration)
         self.offset = offset
-        self.Ym = Ym
+        self.ym = ym
 
-        self.IV_curve = dict(
-            (
-                float(s.split(";")[0]) + self.offset[0],
-                float(s.split(";")[1]) + self.offset[1],
-            )
-            for s in self.cal_table.columns[:-1]
-        )
+        self.iv_curve = {
+            s["voltage"] + self.offset[0]: s["current"] + self.offset[1]
+            for s in self.calibration_data
+        }
 
-        self.IV_pumped = dict(
-            (
-                float(s.split(";")[0]) + self.offset[0],
-                float(s.split(";")[1]) + self.offset[1],
-            )
-            for s in self.meas_table.columns[:-1]
-        )
+        self.i = np.array(list(self.iv_curve.values()))
+        self.v = np.array(list(self.iv_curve.keys()))
 
-        self.LO_rate = LO_rate
+        self.iv_pumped = self.iv_curve = {
+            s["voltage"] + self.offset[0]: s["current"] + self.offset[1]
+            for s in self.measure_data
+        }
 
-        self.I = np.array(list(self.IV_curve.values()))
-        self.V = np.array(list(self.IV_curve.keys()))
+        self.i_pumped = np.array(list(self.iv_pumped.values()))
+        self.v_pumped = np.array(list(self.iv_pumped.keys()))
 
-        self.Vgap, self.Igap = get_gap(self.V, self.I, **gap_params)
+        self.lo_rate = lo_rate
 
-        self.I_pumped = np.array(list(self.IV_pumped.values()))
-        self.V_pumped = np.array(list(self.IV_pumped.keys()))
+        self.v_gap, self.i_gap = v_gap, i_gap
+        if gap_params is None:
+            gap_params = {
+                "voltage_gap_start": 0.0022,
+                "voltage_gap_end": 0.003,
+                "voltage_rn_start": 0.004,
+                "sgf_window": 50,
+                "sgf_degree": 5,
+            }
+        # calculate gap if v_gap, i_gap not passed
+        if not self.v_gap and not self.i_gap:
+            self.v_gap, self.i_gap = get_gap(self.v, self.i, **gap_params)
 
-        self.V_bias = V_bias
+        self.v_bias = v_bias
         self.rho = rho
 
         self.resp = RespFnFromIVData(self.Vn, self.In)
-        self.point_num = point_num
 
-        self.freq_list = np.array(self.meas_table.pop("freq"), dtype=np.float64)
+        self.if_list = if_list
+        self.point_num = len(if_list)
 
-        self._measures = defaultdict(Measure)
+        self._measures: MeasureList["Measure"] = MeasureList()
         self.cal_impedance = None
 
     def calibrate(self):
-        for key in self._measures.keys():
-            self._measures[key].calibrate()
+        for measure in self._measures:
+            measure.calibrate()
 
     @property
     def measures(self):
         return self._measures
 
-    def set_measures(self, recalculate=False):
-        if recalculate or not self.cal_impedance:
-            self.set_cal_impedance()
-        for vi, meas in self.meas_table.items():
-            key = f"{float(vi.split(';')[0]) + self.offset[0]};{float(vi.split(';')[1]) + self.offset[1]}"
-            self._measures[key] = Measure(
-                meas,
-                self.cals,
-                self.cal_impedance,
-                point_num=self.point_num,
+    def set_measures(self, calculate_cal_impedance: bool = True):
+        if calculate_cal_impedance:
+            self.cal_impedance = self.calculate_cal_impedance()
+        assert self.cal_impedance is not None, "Calibration impedance can't be None"
+        for meas in self.measure_data:
+            measure = Measure(
+                reflection=meas["reflection"],
+                cals=self.cals,
+                cal_impedance=self.cal_impedance,
+                voltage=meas["voltage"],
+                current=meas["current"],
+                if_list=self.if_list,
                 rho=self.rho,
-                freq_list=self.freq_list,
             )
+            self._measures.append(measure)
 
     def remove_measures(self):
-        self._measures = defaultdict(Measure)
+        self._measures = MeasureList()
 
     @property
     def cals(self):
-        open = self.cal_table.filter(like=f"{self.V_bias['open']}").iloc[:, 0]
-        short = self.cal_table.filter(like=f"{self.V_bias['short']}").iloc[:, 0]
-        load = self.cal_table.filter(like=f"{self.V_bias['load']}").iloc[:, 0]
-        return pd.DataFrame((open, short, load), dtype=complex).T
+        return {
+            "open": self.calibration_data.get_by_voltage(self.v_bias['open'])['reflection'],
+            "short": self.calibration_data.get_by_voltage(self.v_bias['short']),
+            "load": self.calibration_data.get_by_voltage(self.v_bias['load']),
+        }
 
     @property
     def Vn(self):
-        return self.V / self.Vgap
+        return self.v / self.v_gap
 
     @property
     def In(self):
-        return self.I / (self.Igap)
+        return self.i / self.i_gap
 
     @staticmethod
     def kron(a, b):
-        if a == b:
-            return 1
-        else:
-            return 0
+        return 1 if a == b else 0
 
-    def set_cal_impedance(self):
+    def calculate_cal_impedance(self) -> Dict[str, Callable]:
+        """
+        This method calculate and fit (poly 4) SIS mixer impedance for calibration points in self.v_bias
+
+        Returns: Dict of functions
+
+        """
         res = {
             "open": {"re": [], "im": []},
             "short": {"re": [], "im": []},
@@ -208,7 +313,7 @@ class Mixer:
             "short": {"opt_re": [], "cov_re": [], "opt_im": [], "cov_im": []},
             "load": {"opt_re": [], "cov_re": [], "opt_im": [], "cov_im": []},
         }
-        nu0_range = self.freq_list[::20]
+        nu0_range = self.if_list[::20]
         f_re = (
             lambda x, a1, a2, a3, a4, a5: a1 * x**4
             + a2 * x**3
@@ -225,13 +330,13 @@ class Mixer:
         )
 
         range_time = datetime.now()
-        for nu0 in nu0_range:
+        for ind, nu0 in enumerate(nu0_range):
             iter_time = datetime.now()
-            z_open = self.Z(nu=self.LO_rate, nu0=nu0, V0=self.V_bias["open"], al=0.01)
-            z_short = self.Z(nu=self.LO_rate, nu0=nu0, V0=self.V_bias["short"], al=0.01)
-            z_load = self.Z(nu=self.LO_rate, nu0=nu0, V0=self.V_bias["load"], al=0.01)
+            z_open = self.Z(nu=self.lo_rate, nu0=nu0, V0=self.v_bias["open"], al=0.001)
+            z_short = self.Z(nu=self.lo_rate, nu0=nu0, V0=self.v_bias["short"], al=0.001)
+            z_load = self.Z(nu=self.lo_rate, nu0=nu0, V0=self.v_bias["load"], al=0.001)
             delta = datetime.now() - iter_time
-            debug(f"Z calculation time: {delta}")
+            debug(f"[calculate_cal_impedance][{ind}/{len(nu0_range)}]Z calculation time: {delta}")
 
             res["open"]["re"].append(z_open.real)
             res["open"]["im"].append(z_open.imag)
@@ -241,7 +346,7 @@ class Mixer:
             res["load"]["im"].append(z_load.imag)
 
         delta = datetime.now() - range_time
-        debug(f"Z calculation time: {delta}")
+        debug(f"[calculate_cal_impedance] Finish. Z calculation time: {delta}")
 
         for key in par.keys():
             par[key]["opt_re"], par[key]["cov_re"] = curve_fit(
@@ -259,11 +364,11 @@ class Mixer:
             "load": lambda x: f_re(x, *par["load"]["opt_re"])
             + f_im(x, *par["load"]["opt_im"]) * 1j,
         }
-        self.cal_impedance = imp
+        return imp
 
-    def _G(self, nu, nu0, V0, al, lim=10, mrange=[0]):
+    def _G(self, nu, nu0, V0, al, lim=10, mrange=(-1, 0, 1)):
         """
-        :param float nu: FFO rate
+        :param float nu: LO rate
         :param float nu0: IF rate
         """
         start_time = datetime.now()
@@ -286,31 +391,31 @@ class Mixer:
                                 (
                                     self.resp.idc(
                                         (V0 + n1 * hbar * om / e + hbar * omm(m1) / e)
-                                        / self.Vgap
+                                        / self.v_gap
                                     )
                                     - self.resp.idc(
-                                        (V0 + n1 * hbar * om / e) / self.Vgap
+                                        (V0 + n1 * hbar * om / e) / self.v_gap
                                     )
                                 )
                                 + (
-                                    self.resp.idc((V0 + n * hbar * om / e) / self.Vgap)
+                                    self.resp.idc((V0 + n * hbar * om / e) / self.v_gap)
                                     - self.resp.idc(
                                         (V0 + n * hbar * om / e - hbar * omm(m1) / e)
-                                        / self.Vgap
+                                        / self.v_gap
                                     )
                                 )
                             )
-                            * self.Igap
+                            * self.i_gap
                         )
-                g[m + d][m1 + d] *= e / (2 * hbar * om0)
+                g[m + d][m1 + d] *= e / (2 * hbar * omm(m1))
 
         delta = datetime.now() - start_time
         debug(f"G calculation time: {delta}")
         return g
 
-    def _B(self, nu, nu0, V0, al, lim=10, mrange=[0]):
+    def _B(self, nu, nu0, V0, al, lim=10, mrange=(-1, 0, 1)):
         """
-        :param float nu: FFO rate
+        :param float nu: LO rate
         :param float nu0: IF rate
         """
         start_time = datetime.now()
@@ -334,23 +439,23 @@ class Mixer:
                                 (
                                     self.resp.ikk(
                                         (V0 + n1 * hbar * om / e + hbar * omm(m1) / e)
-                                        / self.Vgap
+                                        / self.v_gap
                                     )
                                     - self.resp.ikk(
-                                        (V0 + n1 * hbar * om / e) / self.Vgap
+                                        (V0 + n1 * hbar * om / e) / self.v_gap
                                     )
                                 )
                                 - (
-                                    self.resp.ikk((V0 + n * hbar * om / e) / self.Vgap)
+                                    self.resp.ikk((V0 + n * hbar * om / e) / self.v_gap)
                                     - self.resp.ikk(
                                         (V0 + n * hbar * om / e - hbar * omm(m1) / e)
-                                        / self.Vgap
+                                        / self.v_gap
                                     )
                                 )
                             )
-                            * self.Igap
+                            * self.i_gap
                         )
-                b[m + d][m1 + d] *= e / (2 * hbar * om0)
+                b[m + d][m1 + d] *= e / (2 * hbar * omm(m1))
 
         delta = datetime.now() - start_time
         debug(f"B calculation time: {delta}")
@@ -360,7 +465,7 @@ class Mixer:
         """
         :param int lim:
         :param list mrange:
-        :param float nu: FFO rate
+        :param float nu: LO rate
         :param float nu0: IF rate
         :param float V0: V bias
         :param float al: pumping level
@@ -369,10 +474,10 @@ class Mixer:
             mrange = [-1, 0, 1]
 
         start_time = datetime.now()
-        if self.Ym:
+        if self.ym:
             g = np.array(self._G(nu, nu0, V0, al, lim, mrange))
             b = np.array(self._B(nu, nu0, V0, al, lim, mrange))
-            y = g + np.eye(3, 3) * self.Ym + b * 1j
+            y = g + np.eye(3, 3) * self.ym + b * 1j
             res = np.linalg.inv(y)[1][1]
 
         else:
@@ -389,7 +494,7 @@ class Mixer:
         """
         :param float V0: SIS Bias
         :param float al: Pumping level
-        :param float om: FFO rate
+        :param float om: LO rate
         :param int lim: summ limit
         """
         res = 0
@@ -397,32 +502,7 @@ class Mixer:
         for n in np.arange(-lim, lim + 1, 1):
             res += (
                 besselj(n, al) ** 2
-                * self.resp.idc((V0 + n * hbar * om / e) / self.Vgap)
-                * self.Igap
+                * self.resp.idc((V0 + n * hbar * om / e) / self.v_gap)
+                * self.i_gap
             )
         return float(res)
-
-
-def mixing(
-    meas_table,
-    cal_table,
-    V_bias,
-    LO_rate,
-    Ym=None,
-    offset=(0, 0),
-    point_num=300,
-    rho=50,
-):
-    mixer = Mixer(
-        meas_table=meas_table,
-        cal_table=cal_table,
-        V_bias=V_bias,
-        point_num=point_num,
-        Ym=Ym,
-        offset=offset,
-        LO_rate=LO_rate,
-        rho=rho,
-    )
-    mixer.set_measures()
-    mixer.calibrate()
-    return mixer
