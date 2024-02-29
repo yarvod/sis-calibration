@@ -165,9 +165,11 @@ class Mixer:
     >>> mixer.set_measures()
     >>> mixer.calibrate()
 
-    If you want to set custom calibration impedance before call ``mixer.set_measures()`` you should set:
-    ``mixer.cal_impedance = {"open": func(if), "short": ..., "load": ...}`` Then:
+    If you want to set custom calibration impedance: before call ``mixer.set_measures()`` you should set:
+    ``mixer.cal_impedance = {"open": func(if), "short": ..., "load": ...}``
 
+    >>> mixer = Mixer(...)
+    >>> mixer.cal_impedance = {"open": lambda x: ..., "short": ..., "load": ...}
     >>> mixer.set_measures(calculate_cal_impedance=False)
     >>> mixer.calibrate()
 
@@ -280,8 +282,8 @@ class Mixer:
     def cals(self):
         return {
             "open": self.calibration_data.get_by_voltage(self.v_bias['open'])['reflection'],
-            "short": self.calibration_data.get_by_voltage(self.v_bias['short']),
-            "load": self.calibration_data.get_by_voltage(self.v_bias['load']),
+            "short": self.calibration_data.get_by_voltage(self.v_bias['short'])['reflection'],
+            "load": self.calibration_data.get_by_voltage(self.v_bias['load'])['reflection'],
         }
 
     @property
