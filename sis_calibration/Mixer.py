@@ -108,7 +108,7 @@ class Measure:
             V = np.array([G_m_1, G_m_2, G_m_3])
 
             self._append_cals_coefs(self._error_matrix(C, V), cals)
-
+        cals = {k: np.array(v) for k, v in cals.items()}
         self.calibrated_reflection = self.calibrate_reflection(self.reflection_z, cals)
 
 
