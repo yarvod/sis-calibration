@@ -240,3 +240,7 @@ def get_gap(
         plt.show()
 
     return v_gap[0], i_gap[0]
+
+
+def kron(a, b):
+    return 1 if a == b else 0

@@ -4,6 +4,8 @@ from typing import List, Union, Dict, Tuple, Callable
 import numpy as np
 
 from mpmath import besselj
+
+from .if_impedance import Z
 from .respfn import RespFnFromIVData
 from scipy.constants import e, hbar
 from scipy.optimize import curve_fit
@@ -294,10 +296,6 @@ class Mixer:
     def In(self):
         return self.i / self.i_gap
 
-    @staticmethod
-    def kron(a, b):
-        return 1 if a == b else 0
-
     def calculate_cal_impedance(self) -> Dict[str, Callable]:
         """
         This method calculate and fit (poly 4) SIS mixer impedance for calibration points in self.v_bias
@@ -334,9 +332,9 @@ class Mixer:
         range_time = datetime.now()
         for ind, nu0 in enumerate(nu0_range):
             iter_time = datetime.now()
-            z_open = self.Z(nu=self.lo_rate, nu0=nu0, V0=self.v_bias["open"], al=0.001)
-            z_short = self.Z(nu=self.lo_rate, nu0=nu0, V0=self.v_bias["short"], al=0.001)
-            z_load = self.Z(nu=self.lo_rate, nu0=nu0, V0=self.v_bias["load"], al=0.001)
+            z_open = Z(resp=self.resp, nu=self.lo_rate, nu0=nu0, V0=self.v_bias["open"], al=0.001, v_gap=self.v_gap, i_gap=self.i_gap, ym=self.ym)
+            z_short = Z(resp=self.resp, nu=self.lo_rate, nu0=nu0, V0=self.v_bias["short"], al=0.001, v_gap=self.v_gap, i_gap=self.i_gap, ym=self.ym)
+            z_load = Z(resp=self.resp, nu=self.lo_rate, nu0=nu0, V0=self.v_bias["load"], al=0.001, v_gap=self.v_gap, i_gap=self.i_gap, ym=self.ym)
             delta = datetime.now() - iter_time
             debug(f"[calculate_cal_impedance][{ind}/{len(nu0_range)}]Z calculation time: {delta}")
 
@@ -367,130 +365,6 @@ class Mixer:
             + f_im(x, *par["load"]["opt_im"]) * 1j,
         }
         return imp
-
-    def _G(self, nu, nu0, V0, al, lim=10, mrange=(-1, 0, 1)):
-        """
-        :param float nu: LO rate
-        :param float nu0: IF rate
-        """
-        start_time = datetime.now()
-        om = nu * np.pi * 2
-        om0 = nu0 * 2 * np.pi
-        omm = lambda m: m * om + om0
-
-        g = np.zeros((len(mrange), len(mrange)))
-        d = max(mrange)
-
-        for m in mrange:
-            for m1 in mrange:
-                for n in np.arange(-lim, lim + 1, 1):
-                    for n1 in np.arange(-lim, lim + 1, 1):
-                        g[m + d][m1 + d] += float(
-                            besselj(n, al)
-                            * besselj(n1, al)
-                            * self.kron(m - m1, n1 - n)
-                            * (
-                                (
-                                    self.resp.idc(
-                                        (V0 + n1 * hbar * om / e + hbar * omm(m1) / e)
-                                        / self.v_gap
-                                    )
-                                    - self.resp.idc(
-                                        (V0 + n1 * hbar * om / e) / self.v_gap
-                                    )
-                                )
-                                + (
-                                    self.resp.idc((V0 + n * hbar * om / e) / self.v_gap)
-                                    - self.resp.idc(
-                                        (V0 + n * hbar * om / e - hbar * omm(m1) / e)
-                                        / self.v_gap
-                                    )
-                                )
-                            )
-                            * self.i_gap
-                        )
-                g[m + d][m1 + d] *= e / (2 * hbar * omm(m1))
-
-        delta = datetime.now() - start_time
-        debug(f"G calculation time: {delta}")
-        return g
-
-    def _B(self, nu, nu0, V0, al, lim=10, mrange=(-1, 0, 1)):
-        """
-        :param float nu: LO rate
-        :param float nu0: IF rate
-        """
-        start_time = datetime.now()
-        om = nu * np.pi * 2
-        om0 = nu0 * 2 * np.pi
-        omm = lambda m: m * om + om0
-
-        b = np.zeros((len(mrange), len(mrange)))
-        d = max(mrange)
-
-        for m in mrange:
-            for m1 in mrange:
-                i = 0
-                for n in np.arange(-lim, lim + 1, 1):
-                    for n1 in np.arange(-lim, lim + 1, 1):
-                        b[m + d][m1 + d] += float(
-                            besselj(n, al)
-                            * besselj(n1, al)
-                            * self.kron(m - m1, n1 - n)
-                            * (
-                                (
-                                    self.resp.ikk(
-                                        (V0 + n1 * hbar * om / e + hbar * omm(m1) / e)
-                                        / self.v_gap
-                                    )
-                                    - self.resp.ikk(
-                                        (V0 + n1 * hbar * om / e) / self.v_gap
-                                    )
-                                )
-                                - (
-                                    self.resp.ikk((V0 + n * hbar * om / e) / self.v_gap)
-                                    - self.resp.ikk(
-                                        (V0 + n * hbar * om / e - hbar * omm(m1) / e)
-                                        / self.v_gap
-                                    )
-                                )
-                            )
-                            * self.i_gap
-                        )
-                b[m + d][m1 + d] *= e / (2 * hbar * omm(m1))
-
-        delta = datetime.now() - start_time
-        debug(f"B calculation time: {delta}")
-        return b
-
-    def Z(self, nu, nu0, V0, al, lim=10, mrange=None):
-        """
-        :param int lim:
-        :param list mrange:
-        :param float nu: LO rate
-        :param float nu0: IF rate
-        :param float V0: V bias
-        :param float al: pumping level
-        """
-        if mrange is None:
-            mrange = [-1, 0, 1]
-
-        start_time = datetime.now()
-        if self.ym:
-            g = np.array(self._G(nu, nu0, V0, al, lim, mrange))
-            b = np.array(self._B(nu, nu0, V0, al, lim, mrange))
-            y = g + np.eye(3, 3) * self.ym + b * 1j
-            res = np.linalg.inv(y)[1][1]
-
-        else:
-            g = np.array(self._G(nu, nu0, V0, al, lim, [0]))
-            b = np.array(self._B(nu, nu0, V0, al, lim, [0]))
-            y = g[0][0] + b[0][0] * 1j
-            res = 1 / y
-
-        delta = datetime.now() - start_time
-        debug(f"Z calculation time: {delta}")
-        return res
 
     def Ip(self, V0, al=0.2, nu=600 * 10**9, lim=10):
         """
